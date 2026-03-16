@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cent Account — Trading Journal</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-height:100vh}
+
+.header{background:#fff;border-bottom:1px solid #e8e6e0;padding:14px 16px;position:sticky;top:0;z-index:100}
+.header-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.back-btn{color:#1D9E75;font-size:14px;text-decoration:none;font-weight:500;display:flex;align-items:center;gap:4px}
+.header-title{font-size:16px;font-weight:600}
+.header-badge{background:#E1F5EE;color:#0F6E56;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;margin-left:auto}
+.balance-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.bal-card{border-radius:10px;padding:8px 10px;text-align:center}
+.bal-label{font-size:10px;margin-bottom:2px;opacity:0.8}
+.bal-val{font-size:15px;font-weight:600}
+.bal-pnl{background:#E1F5EE;color:#0F6E56}
+.bal-win{background:#EAF3DE;color:#3B6D11}
+.bal-orders{background:#F1EFE8;color:#5F5E5A}
+
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e8e6e0;overflow-x:auto}
+.tab{padding:12px 16px;font-size:13px;cursor:pointer;border:none;background:transparent;color:#888;border-bottom:2px solid transparent;white-space:nowrap;font-family:'Sarabun',sans-serif;font-weight:500}
+.tab.active{color:#0F6E56;border-bottom:2px solid #1D9E75}
+
+.page{display:none;padding:14px;max-width:600px;margin:0 auto}
+.page.active{display:block}
+
+.metric-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px}
+.metric{background:#fff;border-radius:12px;padding:12px 14px;border:1px solid #e8e6e0}
+.metric-label{font-size:11px;color:#888;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.4px}
+.metric-value{font-size:22px;font-weight:600}
+.green{color:#1D9E75}.red{color:#E24B4A}.amber{color:#BA7517}
+
+.card{background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:12px;border:1px solid #e8e6e0}
+.section-title{font-size:14px;font-weight:600;margin-bottom:12px}
+
+.form-group{margin-bottom:10px}
+.form-group label{font-size:12px;color:#666;display:block;margin-bottom:3px;font-weight:500}
+.form-group input,.form-group select{width:100%;padding:9px 11px;border:1px solid #e0ded8;border-radius:10px;font-size:14px;background:#fafaf8;color:#1a1a1a;font-family:'Sarabun',sans-serif;outline:none}
+.form-group input:focus,.form-group select:focus{border-color:#1D9E75;background:#fff}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+.btn{padding:11px 18px;border-radius:10px;font-size:14px;cursor:pointer;border:1px solid #e0ded8;background:#fff;color:#1a1a1a;font-family:'Sarabun',sans-serif;font-weight:500;width:100%;margin-bottom:8px}
+.btn:active{transform:scale(0.98)}
+.btn-primary{background:#1D9E75;color:#fff;border-color:#1D9E75}
+.btn-danger{color:#E24B4A;border-color:#E24B4A}
+.btn-warn{color:#BA7517;border-color:#EF9F27;background:#FAEEDA}
+
+.checklist{display:flex;flex-direction:column;gap:8px}
+.check-item{display:flex;align-items:flex-start;gap:10px;padding:11px;border-radius:10px;border:1px solid #e8e6e0;cursor:pointer;background:#fafaf8}
+.check-item.checked{background:#EAF3DE;border-color:#9FE1CB}
+.check-box{width:20px;height:20px;border-radius:6px;border:1.5px solid #ccc;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.check-item.checked .check-box{background:#1D9E75;border-color:#1D9E75}
+.check-mark{color:white;font-size:12px;display:none}
+.check-item.checked .check-mark{display:block}
+.check-text{font-size:14px;line-height:1.5}
+
+.alert{padding:11px 13px;border-radius:10px;font-size:13px;margin-bottom:10px;line-height:1.5}
+.alert-warn{background:#FAEEDA;color:#633806;border-left:3px solid #EF9F27}
+.alert-success{background:#EAF3DE;color:#27500A;border-left:3px solid #1D9E75}
+.alert-danger{background:#FCEBEB;color:#791F1F;border-left:3px solid #E24B4A}
+.alert-info{background:#E1F5EE;color:#085041;border-left:3px solid #1D9E75}
+
+.order-list{display:flex;flex-direction:column;gap:10px}
+.order-card{background:#fff;border-radius:12px;padding:13px;border:1px solid #e8e6e0;border-left:3px solid #1D9E75}
+.order-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.order-symbol{font-weight:600;font-size:15px}
+.order-date{font-size:11px;color:#999;margin-top:2px}
+.order-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-buy{background:#E1F5EE;color:#0F6E56}
+.badge-sell{background:#FAECE7;color:#993C1D}
+.badge-ok{background:#EAF3DE;color:#27500A}
+.badge-warn2{background:#FAEEDA;color:#633806}
+.badge-bad{background:#FCEBEB;color:#791F1F}
+.order-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;font-size:12px;color:#666}
+.order-prices span{display:flex;flex-direction:column}
+.order-prices b{font-size:13px;color:#1a1a1a;font-weight:600}
+.order-pnl{font-size:20px;font-weight:600}
+.order-reason{font-size:12px;color:#888;margin-top:8px;padding-top:8px;border-top:1px solid #f0ede8}
+.delete-btn{background:none;border:none;color:#ccc;font-size:15px;cursor:pointer;padding:2px 4px}
+
+.empty-state{text-align:center;padding:2.5rem 1rem;color:#aaa;font-size:14px;line-height:2}
+.sl-info{background:#F0FBF6;border-radius:10px;padding:11px;margin-top:6px;font-size:13px;color:#555}
+
+.rule-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #f0ede8}
+.rule-item:last-child{border-bottom:none}
+.rule-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:7px}
+.rule-text{font-size:14px;line-height:1.6}
+
+.timer-wrap{text-align:center;padding:1.5rem 1rem}
+.timer-big{font-size:52px;font-weight:600;letter-spacing:-2px;margin:1rem 0;color:#BA7517}
+.timer-msg{font-size:14px;color:#666;line-height:1.7;margin-bottom:1.5rem}
+
+.day-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:8px}
+.day-cell{aspect-ratio:1;border-radius:4px;border:1px solid #e8e6e0;background:#f8f7f4;display:flex;align-items:center;justify-content:center;font-size:9px;color:#ccc}
+.day-cell.good{background:#1D9E75;border-color:#1D9E75;color:#fff}
+.day-cell.partial{background:#EF9F27;border-color:#EF9F27;color:#fff}
+.day-cell.bad{background:#E24B4A;border-color:#E24B4A;color:#fff}
+
+.progress-bar{height:7px;background:#e8e6e0;border-radius:4px;overflow:hidden;margin-top:5px}
+.progress-fill{height:100%;border-radius:4px}
+
+.filter-row{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.filter-btn{padding:6px 14px;border-radius:20px;font-size:12px;border:1px solid #e0ded8;background:#fff;color:#666;cursor:pointer;font-family:'Sarabun',sans-serif}
+.filter-btn.active{background:#1D9E75;color:#fff;border-color:#1D9E75}
+
+.limit-box{background:#E1F5EE;border-radius:12px;padding:14px;margin-bottom:12px}
+.limit-title{font-size:12px;font-weight:600;color:#0F6E56;margin-bottom:10px}
+.limit-row{display:flex;justify-content:space-between;font-size:13px;color:#085041;padding:4px 0;border-bottom:1px solid rgba(29,158,117,0.15)}
+.limit-row:last-child{border-bottom:none}
+.limit-row b{font-weight:600}
+
+.quote-card{background:#1a1a1a;color:#fff;border-radius:14px;padding:18px;margin-bottom:12px}
+.quote-text{font-size:14px;line-height:1.9}
+.quote-text em{color:#9FE1CB;font-style:normal}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <a class="back-btn" href="index.html">‹ กลับ</a>
+    <div class="header-title">Cent Account</div>
+    <div class="header-badge">Cent</div>
+  </div>
+  <div class="balance-row">
+    <div class="bal-card bal-pnl">
+      <div class="bal-label">P&L รวม</div>
+      <div class="bal-val" id="bal-pnl">$0</div>
+    </div>
+    <div class="bal-card bal-win">
+      <div class="bal-label">Win Rate</div>
+      <div class="bal-val" id="bal-wr">—</div>
+    </div>
+    <div class="bal-card bal-orders">
+      <div class="bal-label">Order ทั้งหมด</div>
+      <div class="bal-val" id="bal-orders">0</div>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('checklist',this)">ตรวจกฎ</button>
+  <button class="tab" onclick="switchTab('order',this)">บันทึก</button>
+  <button class="tab" onclick="switchTab('history',this)">ประวัติ</button>
+  <button class="tab" onclick="switchTab('stats',this)">สถิติ</button>
+  <button class="tab" onclick="switchTab('rules',this)">กฎ</button>
+</div>
+
+<!-- CHECKLIST -->
+<div id="page-checklist" class="page active">
+  <div id="timer-section" style="display:none">
+    <div class="card">
+      <div class="timer-wrap">
+        <div style="font-size:15px;font-weight:600;color:#BA7517">หยุดก่อน!</div>
+        <div class="timer-big" id="timer-display">30:00</div>
+        <div class="timer-msg">ให้อารมณ์เย็นลงก่อน<br>อย่าเพิ่งกดอะไรในแอปเทรด</div>
+        <button class="btn" onclick="stopTimer()">ยกเลิก</button>
+      </div>
+    </div>
+  </div>
+  <div id="checklist-section">
+    <div class="alert alert-info">เช็คให้ครบก่อนเปิด Order ทุกครั้ง</div>
+    <div id="result-ok" class="alert alert-success" style="display:none">ผ่านครบ — เปิดได้เลยครับ</div>
+    <div id="result-fail" class="alert alert-warn" style="display:none">ยังไม่ครบ — อย่าเพิ่งเปิดครับ</div>
+    <div class="card">
+      <div class="checklist" id="main-checklist">
+        <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">รู้ว่าจะเปิดที่ราคาเท่าไหร่</span></div>
+        <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ตั้ง Take Profit ในระบบแล้ว</span></div>
+        <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ตั้ง Stop Loss ในระบบแล้ว (ไม่เกิน $15)</span></div>
+        <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ถ้าโดน SL วันนี้ — ยังโอเคอยู่</span></div>
+        <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ไม่ได้เปิดเพราะกลัวพลาด หรืออยากแก้แค้น</span></div>
+        <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ไม่มี Order ติดลบอยู่ตอนนี้</span></div>
+        <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">อารมณ์ปกติ ไม่เครียด ไม่โลภ</span></div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="checkAll()">ตรวจสอบ</button>
+    <button class="btn btn-warn" onclick="startTimer()">กลัว/ไม่แน่ใจ — หยุด 30 นาที</button>
+    <button class="btn" onclick="resetChecklist()">รีเซ็ต</button>
+  </div>
+</div>
+
+<!-- ORDER FORM -->
+<div id="page-order" class="page">
+  <div class="limit-box">
+    <div class="limit-title">ขีดจำกัด Cent Account</div>
+    <div class="limit-row"><span>SL ต่อ Order</span><b>ไม่เกิน $15</b></div>
+    <div class="limit-row"><span>ขาดทุนต่อวัน</span><b>ไม่เกิน $30</b></div>
+    <div class="limit-row"><span>Order พร้อมกัน</span><b>ไม่เกิน 2</b></div>
+  </div>
+  <div class="card">
+    <p class="section-title">บันทึก Order</p>
+    <div class="form-row">
+      <div class="form-group"><label>วันที่</label><input type="date" id="f-date"></div>
+      <div class="form-group"><label>สินทรัพย์</label><input type="text" id="f-symbol" value="XAUUSDc"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>ทิศทาง</label>
+        <select id="f-dir"><option value="buy">Buy</option><option value="sell">Sell</option></select>
+      </div>
+      <div class="form-group"><label>Lot</label><input type="number" id="f-lot" placeholder="0.1" step="0.01" oninput="calcRisk()"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Entry</label><input type="number" id="f-entry" placeholder="4985.00" step="0.01" oninput="calcRisk()"></div>
+      <div class="form-group"><label>Take Profit</label><input type="number" id="f-tp" placeholder="5050.00" step="0.01" oninput="calcRisk()"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Stop Loss</label><input type="number" id="f-sl" placeholder="4950.00" step="0.01" oninput="calcRisk()"></div>
+      <div class="form-group"><label>P&L จริง (USD)</label><input type="number" id="f-pnl" placeholder="ใส่หลังปิด"></div>
+    </div>
+    <div class="sl-info" id="risk-info" style="display:none">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>ความเสี่ยง SL</span><b id="risk-val">-</b></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>เป้ากำไร TP</span><b id="tp-val" class="green">-</b></div>
+      <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:1px solid #c8f0e0"><span>Risk : Reward</span><b id="rr-val">-</b></div>
+    </div>
+    <div id="risk-warn" class="alert alert-danger" style="display:none;margin-top:8px">SL เกิน $15 — ปรับ Lot หรือ SL ก่อนครับ</div>
+    <div class="form-group" style="margin-top:10px"><label>เหตุผลที่เปิด</label><input type="text" id="f-reason" placeholder="เช่น แนวรับ 4985"></div>
+    <div class="form-group">
+      <label>อารมณ์</label>
+      <select id="f-emotion">
+        <option value="calm">สงบ มีสติ</option><option value="confident">มั่นใจ</option>
+        <option value="fomo">กลัวพลาด (FOMO)</option><option value="revenge">อยากแก้แค้น</option>
+        <option value="fear">กลัว</option><option value="greedy">โลภ</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>ทำตามกฎครบไหม?</label>
+      <select id="f-rules"><option value="yes">ครบ</option><option value="partial">บางข้อ</option><option value="no">ไม่ครบ</option></select>
+    </div>
+    <div id="emotion-warn" class="alert alert-warn" style="display:none;margin-top:8px">อารมณ์ไม่เหมาะ — แนะนำให้รอก่อนครับ</div>
+    <button class="btn btn-primary" onclick="saveOrder()" style="margin-top:10px">บันทึก</button>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div id="page-history" class="page">
+  <div class="metric-grid">
+    <div class="metric"><div class="metric-label">Order</div><div class="metric-value" id="h-total">0</div></div>
+    <div class="metric"><div class="metric-label">Win Rate</div><div class="metric-value green" id="h-wr">—</div></div>
+    <div class="metric"><div class="metric-label">กำไรรวม</div><div class="metric-value green" id="h-profit">$0</div></div>
+    <div class="metric"><div class="metric-label">ขาดทุนรวม</div><div class="metric-value red" id="h-loss">$0</div></div>
+  </div>
+  <div class="filter-row">
+    <button class="filter-btn active" onclick="setFilter('all',this)">ทั้งหมด</button>
+    <button class="filter-btn" onclick="setFilter('win',this)">กำไร</button>
+    <button class="filter-btn" onclick="setFilter('loss',this)">ขาดทุน</button>
+    <button class="filter-btn" onclick="setFilter('open',this)">ยังเปิด</button>
+  </div>
+  <div id="history-list" class="order-list"></div>
+</div>
+
+<!-- STATS -->
+<div id="page-stats" class="page">
+  <div class="metric-grid">
+    <div class="metric"><div class="metric-label">วันที่เทรด</div><div class="metric-value" id="s-days">0</div></div>
+    <div class="metric"><div class="metric-label">ทำตามกฎ</div><div class="metric-value green" id="s-comply">—</div></div>
+    <div class="metric"><div class="metric-label">กำไรสุทธิ</div><div class="metric-value" id="s-net">$0</div></div>
+    <div class="metric"><div class="metric-label">Risk:Reward</div><div class="metric-value" id="s-rr">—</div></div>
+  </div>
+  <div class="card">
+    <p class="section-title">P&L รายวัน 30 วัน</p>
+    <div style="position:relative;width:100%;height:200px"><canvas id="pnl-chart"></canvas></div>
+  </div>
+  <div class="card">
+    <p class="section-title">ความสม่ำเสมอ 30 วัน</p>
+    <div class="day-grid" id="day-grid"></div>
+  </div>
+  <div class="card">
+    <p class="section-title">อารมณ์กับผลลัพธ์</p>
+    <div id="emotion-stats"></div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:4px">
+    <button class="btn" onclick="exportData()" style="margin-bottom:0">ส่งออก JSON</button>
+    <button class="btn btn-danger" onclick="clearAll()" style="margin-bottom:0">ล้างข้อมูล</button>
+  </div>
+</div>
+
+<!-- RULES -->
+<div id="page-rules" class="page">
+  <div class="quote-card">
+    <div class="quote-text">"ครั้งสุดท้ายที่ฉันเปิดเพิ่มตอนติดลบ<br><em>ฉันล้างพอร์ต</em><br><br>ฉันจะไม่ทำอีกแล้ว"</div>
+  </div>
+  <div class="limit-box">
+    <div class="limit-title">ขีดจำกัด Cent Account</div>
+    <div class="limit-row"><span>SL ต่อ Order</span><b>ไม่เกิน $15</b></div>
+    <div class="limit-row"><span>ขาดทุนต่อวัน</span><b>ไม่เกิน $30 แล้วหยุด</b></div>
+    <div class="limit-row"><span>Order พร้อมกัน</span><b>ไม่เกิน 2</b></div>
+  </div>
+  <div class="card">
+    <p class="section-title">กฎห้ามทำ</p>
+    <div class="rule-item"><div class="rule-dot" style="background:#E24B4A"></div><div class="rule-text">ห้าม Hedge เพราะกลัว</div></div>
+    <div class="rule-item"><div class="rule-dot" style="background:#E24B4A"></div><div class="rule-text">ห้ามเปิดโดยไม่มี TP และ SL</div></div>
+    <div class="rule-item"><div class="rule-dot" style="background:#E24B4A"></div><div class="rule-text">ห้ามเปิดเพิ่มเมื่อ Order ติดลบ</div></div>
+    <div class="rule-item"><div class="rule-dot" style="background:#E24B4A"></div><div class="rule-text">ห้ามย้าย SL ให้ไกลขึ้น</div></div>
+    <div class="rule-item"><div class="rule-dot" style="background:#1D9E75"></div><div class="rule-text">กลัว/ไม่แน่ใจ → หยุด 30 นาที</div></div>
+    <div class="rule-item"><div class="rule-dot" style="background:#1D9E75"></div><div class="rule-text">เปิดแล้ว → วางโทรศัพท์ → ให้ระบบทำงาน</div></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const STORAGE_KEY = 'tj_cent_orders';
+const SL_LIMIT = 15;
+const emotionMap = {calm:'สงบ',confident:'มั่นใจ',fomo:'FOMO',revenge:'แก้แค้น',fear:'กลัว',greedy:'โลภ'};
+const emotionColor = {calm:'#1D9E75',confident:'#378ADD',fomo:'#EF9F27',revenge:'#E24B4A',fear:'#BA7517',greedy:'#D4537E'};
+
+let orders = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let currentFilter = 'all';
+let chartInst = null;
+let timerInt = null;
+let timerSecs = 1800;
+
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)); updateHeader(); }
+
+function updateHeader() {
+  const closed = orders.filter(o => o.pnl != null);
+  const wins = closed.filter(o => o.pnl > 0);
+  const net = closed.reduce((a, o) => a + parseFloat(o.pnl), 0);
+  const wr = closed.length ? Math.round(wins.length / closed.length * 100) + '%' : '—';
+  const pnlEl = document.getElementById('bal-pnl');
+  pnlEl.textContent = (net >= 0 ? '+' : '') + '$' + net.toFixed(2);
+  pnlEl.style.color = net >= 0 ? '#0F6E56' : '#E24B4A';
+  document.getElementById('bal-wr').textContent = wr;
+  document.getElementById('bal-orders').textContent = orders.length;
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('page-' + name).classList.add('active');
+  if (name === 'history') renderHistory();
+  if (name === 'stats') renderStats();
+}
+
+function toggle(el) { el.classList.toggle('checked'); }
+
+function checkAll() {
+  const total = document.querySelectorAll('#main-checklist .check-item').length;
+  const checked = document.querySelectorAll('#main-checklist .check-item.checked').length;
+  document.getElementById('result-ok').style.display = checked === total ? 'block' : 'none';
+  document.getElementById('result-fail').style.display = checked < total ? 'block' : 'none';
+}
+
+function resetChecklist() {
+  document.querySelectorAll('#main-checklist .check-item').forEach(i => i.classList.remove('checked'));
+  document.getElementById('result-ok').style.display = 'none';
+  document.getElementById('result-fail').style.display = 'none';
+}
+
+function startTimer() {
+  document.getElementById('timer-section').style.display = 'block';
+  document.getElementById('checklist-section').style.display = 'none';
+  timerSecs = 1800; updateTimer();
+  timerInt = setInterval(() => { timerSecs--; updateTimer(); if (timerSecs <= 0) stopTimer(); }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInt);
+  document.getElementById('timer-section').style.display = 'none';
+  document.getElementById('checklist-section').style.display = 'block';
+}
+
+function updateTimer() {
+  const m = Math.floor(timerSecs / 60), s = timerSecs % 60;
+  document.getElementById('timer-display').textContent = m + ':' + String(s).padStart(2, '0');
+}
+
+function calcRisk() {
+  const entry = parseFloat(document.getElementById('f-entry').value);
+  const sl = parseFloat(document.getElementById('f-sl').value);
+  const tp = parseFloat(document.getElementById('f-tp').value);
+  const lot = parseFloat(document.getElementById('f-lot').value) || 0.1;
+  if (!entry || !sl) { document.getElementById('risk-info').style.display = 'none'; return; }
+  const slRisk = Math.abs(entry - sl) * lot;
+  const tpGain = tp ? Math.abs(tp - entry) * lot : null;
+  const rr = tpGain ? (tpGain / slRisk).toFixed(1) : null;
+  document.getElementById('risk-info').style.display = 'block';
+  const rv = document.getElementById('risk-val');
+  rv.textContent = '$' + slRisk.toFixed(2);
+  rv.className = slRisk > SL_LIMIT ? 'red' : 'green';
+  document.getElementById('tp-val').textContent = tpGain ? '+$' + tpGain.toFixed(2) : '-';
+  document.getElementById('rr-val').textContent = rr ? '1:' + rr : '-';
+  document.getElementById('risk-warn').style.display = slRisk > SL_LIMIT ? 'block' : 'none';
+}
+
+function saveOrder() {
+  const date = document.getElementById('f-date').value;
+  const symbol = document.getElementById('f-symbol').value.trim();
+  const dir = document.getElementById('f-dir').value;
+  const lot = parseFloat(document.getElementById('f-lot').value);
+  const entry = parseFloat(document.getElementById('f-entry').value);
+  const tp = parseFloat(document.getElementById('f-tp').value);
+  const sl = parseFloat(document.getElementById('f-sl').value);
+  const pnlRaw = document.getElementById('f-pnl').value;
+  const pnl = pnlRaw !== '' ? parseFloat(pnlRaw) : null;
+  const reason = document.getElementById('f-reason').value;
+  const emotion = document.getElementById('f-emotion').value;
+  const rules = document.getElementById('f-rules').value;
+  if (!date || !symbol || !lot || !entry || !tp || !sl) { alert('กรุณากรอกข้อมูลให้ครบครับ'); return; }
+  orders.unshift({ id: Date.now(), date, symbol, dir, lot, entry, tp, sl, pnl, reason, emotion, rules });
+  save();
+  ['f-lot','f-entry','f-tp','f-sl','f-pnl','f-reason'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('risk-info').style.display = 'none';
+  document.getElementById('risk-warn').style.display = 'none';
+  document.getElementById('emotion-warn').style.display = 'none';
+  alert('บันทึกแล้วครับ');
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderHistory();
+}
+
+function deleteOrder(id) {
+  if (!confirm('ลบ Order นี้?')) return;
+  orders = orders.filter(o => o.id !== id);
+  save(); renderHistory();
+}
+
+function renderHistory() {
+  const closed = orders.filter(o => o.pnl != null);
+  const wins = closed.filter(o => o.pnl > 0);
+  const losses = closed.filter(o => o.pnl < 0);
+  const profit = wins.reduce((a, o) => a + o.pnl, 0);
+  const loss = losses.reduce((a, o) => a + o.pnl, 0);
+  document.getElementById('h-total').textContent = orders.length;
+  document.getElementById('h-wr').textContent = closed.length ? Math.round(wins.length / closed.length * 100) + '%' : '—';
+  document.getElementById('h-profit').textContent = '+$' + profit.toFixed(0);
+  document.getElementById('h-loss').textContent = '$' + loss.toFixed(0);
+  let filtered = orders;
+  if (currentFilter === 'win') filtered = orders.filter(o => o.pnl != null && o.pnl > 0);
+  else if (currentFilter === 'loss') filtered = orders.filter(o => o.pnl != null && o.pnl < 0);
+  else if (currentFilter === 'open') filtered = orders.filter(o => o.pnl == null);
+  const list = document.getElementById('history-list');
+  if (!filtered.length) { list.innerHTML = '<div class="empty-state">📋<br>ยังไม่มี Order ในหมวดนี้</div>'; return; }
+  list.innerHTML = filtered.map(o => {
+    const pnlHtml = o.pnl != null ? '<div class="order-pnl ' + (o.pnl >= 0 ? 'green' : 'red') + '">' + (o.pnl >= 0 ? '+' : '') + '$' + parseFloat(o.pnl).toFixed(2) + '</div>' : '<span class="badge" style="background:#E1F5EE;color:#0F6E56">รอปิด</span>';
+    const rb = o.rules === 'yes' ? 'badge-ok">ครบ' : o.rules === 'partial' ? 'badge-warn2">บางข้อ' : 'badge-bad">ไม่ครบ';
+    return `<div class="order-card"><div class="order-header"><div><div class="order-symbol">${o.symbol}</div><div class="order-date">${o.date}</div></div><div style="display:flex;align-items:center;gap:8px">${pnlHtml}<button class="delete-btn" onclick="deleteOrder(${o.id})">✕</button></div></div><div class="order-meta"><span class="badge badge-${o.dir}">${o.dir.toUpperCase()} ${o.lot}</span><span class="badge ${rb}</span>${o.emotion ? '<span class="badge" style="background:#F1EFE8;color:#5F5E5A">' + (emotionMap[o.emotion] || o.emotion) + '</span>' : ''}</div><div class="order-prices"><span>Entry<b>${o.entry}</b></span><span>TP<b style="color:#1D9E75">${o.tp}</b></span><span>SL<b style="color:#E24B4A">${o.sl}</b></span></div>${o.reason ? '<div class="order-reason">เหตุผล: ' + o.reason + '</div>' : ''}</div>`;
+  }).join('');
+}
+
+function renderStats() {
+  const closed = orders.filter(o => o.pnl != null);
+  const wins = closed.filter(o => o.pnl > 0);
+  const losses = closed.filter(o => o.pnl < 0);
+  const net = closed.reduce((a, o) => a + parseFloat(o.pnl), 0);
+  const days = [...new Set(orders.map(o => o.date))].length;
+  const comply = orders.length ? Math.round(orders.filter(o => o.rules === 'yes').length / orders.length * 100) : 0;
+  const avgWin = wins.length ? wins.reduce((a, o) => a + o.pnl, 0) / wins.length : 0;
+  const avgLoss = losses.length ? Math.abs(losses.reduce((a, o) => a + o.pnl, 0) / losses.length) : 0;
+  document.getElementById('s-days').textContent = days;
+  const sc = document.getElementById('s-comply'); sc.textContent = comply + '%'; sc.className = 'metric-value ' + (comply >= 80 ? 'green' : comply >= 50 ? 'amber' : 'red');
+  const sn = document.getElementById('s-net'); sn.textContent = (net >= 0 ? '+' : '') + '$' + net.toFixed(2); sn.className = 'metric-value ' + (net >= 0 ? 'green' : 'red');
+  document.getElementById('s-rr').textContent = avgLoss > 0 ? '1:' + (avgWin / avgLoss).toFixed(1) : '—';
+  renderDayGrid(); renderPnlChart(closed); renderEmotionStats();
+}
+
+function renderDayGrid() {
+  const grid = document.getElementById('day-grid');
+  const now = new Date(); const days = [];
+  for (let i = 29; i >= 0; i--) { const d = new Date(now); d.setDate(d.getDate() - i); days.push(d.toISOString().split('T')[0]); }
+  const byDay = {}; orders.forEach(o => { if (!byDay[o.date]) byDay[o.date] = []; byDay[o.date].push(o); });
+  grid.innerHTML = days.map((d, i) => {
+    const dayOrders = byDay[d] || []; const has = dayOrders.length > 0;
+    const cls = has ? (dayOrders.every(o => o.rules === 'yes') ? 'good' : dayOrders.some(o => o.rules === 'no') ? 'bad' : 'partial') : '';
+    return `<div class="day-cell ${cls}" title="${d}">${i + 1}</div>`;
+  }).join('');
+}
+
+function renderPnlChart(closed) {
+  const ctx = document.getElementById('pnl-chart');
+  if (chartInst) { chartInst.destroy(); chartInst = null; }
+  const now = new Date(); const labels = [], data = []; const byDay = {};
+  closed.forEach(o => { byDay[o.date] = (byDay[o.date] || 0) + parseFloat(o.pnl); });
+  for (let i = 29; i >= 0; i--) { const d = new Date(now); d.setDate(d.getDate() - i); const key = d.toISOString().split('T')[0]; labels.push(key.slice(5)); data.push(byDay[key] || 0); }
+  chartInst = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ data, backgroundColor: data.map(v => v >= 0 ? '#1D9E75' : '#E24B4A'), borderRadius: 3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 10, font: { size: 10 }, color: '#aaa' }, grid: { display: false } }, y: { ticks: { font: { size: 10 }, color: '#aaa', callback: v => '$' + v }, grid: { color: 'rgba(0,0,0,0.05)' } } } } });
+}
+
+function renderEmotionStats() {
+  const counts = {}, pnl = {};
+  orders.forEach(o => { if (!o.emotion) return; counts[o.emotion] = (counts[o.emotion] || 0) + 1; if (o.pnl != null) pnl[o.emotion] = (pnl[o.emotion] || 0) + parseFloat(o.pnl); });
+  const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+  const container = document.getElementById('emotion-stats');
+  if (!Object.keys(counts).length) { container.innerHTML = '<div style="color:#aaa;font-size:13px;text-align:center;padding:1rem">ยังไม่มีข้อมูลครับ</div>'; return; }
+  container.innerHTML = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([e, c]) => {
+    const pct = Math.round(c / total * 100); const net = (pnl[e] || 0).toFixed(0); const col = emotionColor[e] || '#888';
+    return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="font-weight:500">${emotionMap[e] || e}</span><span style="color:#666">${c} ครั้ง · <b style="color:${parseFloat(net) >= 0 ? '#1D9E75' : '#E24B4A'}">${parseFloat(net) >= 0 ? '+' : ''}$${net}</b></span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${col}"></div></div></div>`;
+  }).join('');
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(orders, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'cent_journal_' + new Date().toISOString().split('T')[0] + '.json'; a.click();
+}
+
+function clearAll() {
+  if (!confirm('ล้างข้อมูล Cent Account ทั้งหมด?')) return;
+  orders = []; save(); alert('ล้างแล้วครับ');
+}
+
+document.getElementById('f-date').valueAsDate = new Date();
+document.getElementById('f-emotion').addEventListener('change', function () {
+  document.getElementById('emotion-warn').style.display = ['fomo', 'revenge', 'fear', 'greedy'].includes(this.value) ? 'block' : 'none';
+});
+updateHeader();
+</script>
+</body>
+</html>

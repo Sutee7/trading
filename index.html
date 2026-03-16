@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Journal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f7f4;--surface:#fff;--surface2:#f1f0ec;
+  --border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);
+  --text:#1a1a1a;--text2:#6b6b68;--text3:#9a9995;
+  --green:#1D9E75;--green-bg:#E1F5EE;--green-text:#0F6E56;
+  --red:#D85A30;--red-bg:#FAECE7;--red-text:#993C1D;
+  --amber:#BA7517;--amber-bg:#FAEEDA;--amber-text:#854F0B;
+  --blue:#378ADD;--blue-bg:#E6F1FB;--blue-text:#185FA5;
+  --radius:8px;--radius-lg:12px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+.app{max-width:1200px;margin:0 auto;padding:2rem 1.25rem}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;gap:12px;flex-wrap:wrap}
+.hdr-left h1{font-size:22px;font-weight:700;letter-spacing:-.3px}
+.hdr-left p{font-size:12px;color:var(--text2);margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0;transition:background .3s}
+.sync-dot.syncing{background:var(--amber);animation:pulse 1s infinite}
+.sync-dot.err{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.badge{display:inline-flex;align-items:center;font-size:11px;border-radius:99px;padding:2px 9px;border:1px solid}
+.badge-cent{background:var(--amber-bg);border-color:#FAC775;color:var(--amber-text)}
+.badge-sync{background:var(--green-bg);border-color:#9FE1CB;color:var(--green-text)}
+.btn{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;padding:8px 16px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;transition:all .15s;font-family:inherit}
+.btn:hover{background:var(--surface2)}
+.btn:active{transform:scale(.98)}
+.btn-green{background:var(--green);color:#fff;border-color:transparent}
+.btn-green:hover{opacity:.88;background:var(--green)}
+.btn-dark{background:var(--text);color:#fff;border-color:transparent}
+.btn-dark:hover{opacity:.85;background:var(--text)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px}
+.stat-lbl{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px}
+.stat-val{font-size:24px;font-weight:700}
+.stat-val.pos{color:var(--green)}.stat-val.neg{color:var(--red)}.stat-val.blue{color:var(--blue)}
+.stat-sub{font-size:12px;color:var(--text3);margin-top:4px}
+.two-col{display:grid;grid-template-columns:3fr 2fr;gap:12px;margin-bottom:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem}
+.card-ttl{font-size:13px;font-weight:600;margin-bottom:1rem}
+.sec-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.875rem;flex-wrap:wrap;gap:8px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11px;font-weight:500;color:var(--text3);padding:0 10px 10px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+td{padding:9px 10px;border-top:1px solid var(--border);color:var(--text);vertical-align:middle;white-space:nowrap}
+tr.open-row{background:rgba(56,138,221,0.035)}
+.bdg{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:4px}
+.bdg-buy{background:var(--green-bg);color:var(--green-text)}
+.bdg-sell{background:var(--red-bg);color:var(--red-text)}
+.bdg-win{background:#EAF3DE;color:#3B6D11}
+.bdg-loss{background:var(--red-bg);color:var(--red-text)}
+.bdg-cent{background:var(--amber-bg);color:var(--amber-text)}
+.bdg-std{background:var(--blue-bg);color:var(--blue-text)}
+.pnl-pos{color:var(--green);font-weight:600}
+.pnl-neg{color:var(--red);font-weight:600}
+.close-btn{font-size:11px;font-weight:500;padding:4px 11px;border-radius:var(--radius);border:1px solid var(--blue);background:var(--blue-bg);color:var(--blue-text);cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s}
+.close-btn:hover{background:#B5D4F4}
+.del-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:2px 6px;transition:color .15s}
+.del-btn:hover{color:var(--red)}
+.reason-pill{display:inline-block;font-size:10px;padding:2px 7px;border-radius:3px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);margin:1px 2px 1px 0}
+.empty-msg{text-align:center;padding:2.5rem;color:var(--text3);font-size:13px}
+.chip-row{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12px;padding:4px 13px;border-radius:99px;border:1px solid var(--border2);background:transparent;cursor:pointer;color:var(--text2);font-family:inherit;transition:all .15s}
+.chip.active{background:var(--text);color:#fff;border-color:transparent}
+.chip.active-open{background:var(--blue);color:#fff;border-color:transparent}
+.quick-label{font-size:11px;color:var(--text3);margin-bottom:4px;display:block}
+.quick-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.qbtn{font-size:12px;font-weight:500;padding:5px 13px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;font-family:inherit;transition:all .15s}
+.qbtn:hover{border-color:var(--text)}
+.qbtn.active{background:var(--text);color:#fff;border-color:transparent}
+.qbtn-gold{border-color:#FAC775;color:var(--amber-text);background:var(--amber-bg)}
+.qbtn-gold:hover,.qbtn-gold.active{background:#FAC775;color:var(--amber-text);border-color:#BA7517}
+.qbtn-btc{border-color:#B5D4F4;color:var(--blue-text);background:var(--blue-bg)}
+.qbtn-btc:hover,.qbtn-btc.active{background:#B5D4F4;color:var(--blue-text);border-color:var(--blue)}
+.qbtn-lot{background:var(--surface);border-color:var(--border2);color:var(--text2)}
+.qbtn-lot:hover{background:var(--surface2)}
+.qbtn-lot.active{background:var(--green);color:#fff;border-color:transparent}
+.conf-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}
+.cbtn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 10px;border-radius:var(--radius);border:1.5px solid var(--border2);background:var(--surface);cursor:pointer;font-family:inherit;transition:all .15s;min-width:68px;flex:1}
+.cbtn .c-pct{font-size:14px;font-weight:700;line-height:1}
+.cbtn .c-lbl{font-size:10px;color:var(--text3);line-height:1.3;text-align:center}
+.cbtn.active .c-lbl{color:inherit}
+.cbtn[data-conf="low"].active{background:#FCEBEB;border-color:var(--red)}.cbtn[data-conf="low"].active .c-pct{color:var(--red)}
+.cbtn[data-conf="med"].active{background:var(--amber-bg);border-color:var(--amber)}.cbtn[data-conf="med"].active .c-pct{color:var(--amber)}
+.cbtn[data-conf="ok"].active{background:#EAF3DE;border-color:#639922}.cbtn[data-conf="ok"].active .c-pct{color:#639922}
+.cbtn[data-conf="good"].active{background:var(--green-bg);border-color:var(--green)}.cbtn[data-conf="good"].active .c-pct{color:var(--green)}
+.cbtn[data-conf="high"].active{background:var(--blue-bg);border-color:var(--blue)}.cbtn[data-conf="high"].active .c-pct{color:var(--blue)}
+.conf-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px}
+.conf-low{background:#FCEBEB;color:var(--red)}
+.conf-med{background:var(--amber-bg);color:var(--amber)}
+.conf-ok{background:#EAF3DE;color:#3B6D11}
+.conf-good{background:var(--green-bg);color:var(--green-text)}
+.conf-high{background:var(--blue-bg);color:var(--blue-text)}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:1rem}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius-lg);padding:1.75rem;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.18)}
+.modal-ttl{font-size:16px;font-weight:700;margin-bottom:1rem}
+.sep{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;padding:10px 0 7px;border-bottom:1px solid var(--border);margin-bottom:10px}
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.fg-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{font-size:12px;font-weight:500;color:var(--text2)}
+input,select,textarea{font-size:14px;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);width:100%;outline:none;font-family:inherit;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--blue)}
+.hint{font-size:11px;color:var(--text3);margin-top:3px}
+.info-box{border-radius:var(--radius);padding:10px 13px;font-size:12px;line-height:1.6;margin-bottom:12px;border:1px solid}
+.info-blue{background:var(--blue-bg);border-color:#B5D4F4;color:var(--blue-text)}
+.info-green{background:var(--green-bg);border-color:#9FE1CB;color:var(--green-text)}
+.tag-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.tag{font-size:12px;padding:3px 11px;border-radius:99px;border:1px solid var(--border2);cursor:pointer;color:var(--text2);transition:all .15s;user-select:none}
+.tag:hover{background:var(--surface2)}
+.tag.sel-entry{background:var(--green);color:#fff;border-color:transparent}
+.tag.sel-exit{background:var(--red);color:#fff;border-color:transparent}
+.pnl-preview{border-radius:var(--radius);padding:10px 13px;font-size:13px;margin-bottom:10px;background:var(--surface2);display:none;align-items:center;gap:8px}
+.pnl-preview.show{display:flex}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)}
+.loading-screen{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+.spinner{width:30px;height:30px;border:2.5px solid var(--border2);border-top-color:var(--text);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* View-only mode */
+.view-only-banner{display:none;background:#FAEEDA;border:1px solid #FAC775;border-radius:var(--radius);padding:8px 14px;font-size:12px;color:#854F0B;align-items:center;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+.view-only-banner.show{display:flex}
+body.view-only .btn-green,
+body.view-only .close-btn,
+body.view-only .del-btn,
+body.view-only #livePriceBar input{pointer-events:none;opacity:.35}
+body.view-only #livePriceBar input{background:var(--surface2)}
+.lock-btn{font-size:12px;padding:4px 12px;border-radius:99px;border:1px solid var(--border2);background:transparent;cursor:pointer;color:var(--text2);font-family:inherit;margin-left:auto}
+.lock-btn:hover{background:var(--surface2)}
+/* Pin modal */
+.pin-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;align-items:center;justify-content:center}
+.pin-overlay.open{display:flex}
+.pin-box{background:var(--surface);border-radius:var(--radius-lg);padding:2rem;width:100%;max-width:340px;box-shadow:0 24px 64px rgba(0,0,0,.2);text-align:center}
+.pin-box h3{font-size:16px;font-weight:700;margin-bottom:6px}
+.pin-box p{font-size:13px;color:var(--text2);margin-bottom:1.25rem}
+.pin-dots{display:flex;justify-content:center;gap:10px;margin-bottom:1.25rem}
+.pin-dot{width:14px;height:14px;border-radius:50%;background:var(--border2);transition:background .2s}
+.pin-dot.filled{background:var(--text)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem}
+.pin-key{font-size:18px;font-weight:600;padding:14px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);cursor:pointer;transition:background .15s;font-family:inherit}
+.pin-key:hover{background:var(--border2)}
+.pin-key:active{transform:scale(.95)}
+.pin-error{font-size:12px;color:var(--red);margin-top:4px;min-height:18px}
+
+@media(max-width:768px){
+  .stats{grid-template-columns:1fr 1fr}
+  .two-col{grid-template-columns:1fr}
+  .fg-row{grid-template-columns:1fr}
+  .app{padding:1.25rem 1rem}
+  .cbtn{min-width:54px;padding:7px 6px}
+  .cbtn .c-pct{font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <div style="font-size:13px;color:var(--text2)" id="loadingMsg">กำลังเชื่อมต่อ Firebase...</div>
+</div>
+
+<div class="app" id="mainApp" style="display:none">
+  <div class="hdr">
+    <div class="hdr-left">
+      <h1>Trade Journal</h1>
+      <p>
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="syncStatus">เชื่อมต่อแล้ว</span>
+        <span class="badge badge-cent">¢ Cent Account</span>
+        <span class="badge badge-sync">☁️ Firebase Sync</span>
+      </p>
+    </div>
+    <div class="btn-row">
+      <a href="cent.html" class="btn" style="text-decoration:none;background:#FAEEDA;color:#854F0B;border-color:#FAC775">¢ Cent Journal</a>
+      <a href="standard.html" class="btn" style="text-decoration:none;background:#E6F1FB;color:#185FA5;border-color:#B5D4F4">$ Standard Journal</a>
+      <button class="btn" onclick="exportCSV()">↓ CSV</button>
+      <button class="btn" id="lockToggleBtn" onclick="showPinModal('lock')">🔒 ล็อก</button>
+      <button class="btn" id="changePinBtn" onclick="showChangePinModal()" style="display:none">🔑 เปลี่ยน PIN</button>
+      <button class="btn btn-green" onclick="openOrderModal()">+ เปิดออเดอร์</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-lbl">กำไร / ขาดทุน รวม</div><div class="stat-val" id="sTotalPnl">¢0.00</div><div class="stat-sub" id="sTotalSub">0 รายการ</div></div>
+    <div class="stat"><div class="stat-lbl">Win Rate</div><div class="stat-val" id="sWinRate">0%</div><div class="stat-sub" id="sWinLoss">W:0 / L:0</div></div>
+    <div class="stat"><div class="stat-lbl">ออเดอร์เปิดอยู่</div><div class="stat-val blue" id="sOpenCount">0</div><div class="stat-sub">รายการที่ยังไม่ปิด</div></div>
+    <div class="stat"><div class="stat-lbl">เทียบ USD</div><div class="stat-val" id="sUSD">$0.00</div><div class="stat-sub">P&L รวม ÷ 100</div></div>
+  </div>
+
+  <div class="two-col">
+    <div class="card"><div class="card-ttl">P&L รายวัน (14 วันล่าสุด)</div><div style="position:relative;height:170px"><canvas id="pnlChart"></canvas></div></div>
+    <div class="card"><div class="card-ttl">สถานะออเดอร์</div><div style="position:relative;height:120px"><canvas id="statusChart"></canvas></div><div id="statusLegend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:12px;color:var(--text2)"></div></div>
+  </div>
+
+
+  <!-- View-only banner -->
+  <div class="view-only-banner" id="viewOnlyBanner">
+    <span>👁️ <strong>โหมดดูอย่างเดียว</strong> — ไม่สามารถแก้ไขข้อมูลได้</span>
+    <button class="lock-btn" onclick="showPinModal('unlock')">🔓 ปลดล็อก</button>
+  </div>
+
+  <!-- Live Price Bar -->
+  <div class="card" id="livePriceBar" style="margin-bottom:10px;display:none">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:13px;font-weight:600;color:var(--text)">💰 ราคาปัจจุบัน:</span>
+      <div id="livePriceInputs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      <span style="font-size:11px;color:var(--text3);margin-left:4px">กรอกราคาตลาดตอนนี้ — P&L ของทุกออเดอร์ที่เปิดอยู่จะอัปเดตอัตโนมัติ</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec-hdr">
+      <div class="card-ttl" style="margin:0">รายการเทรด</div>
+      <div class="chip-row">
+        <button class="chip active-open" onclick="setFilter('open',this)">🔵 เปิดอยู่</button>
+        <button class="chip" onclick="setFilter('all',this)">ทั้งหมด</button>
+        <button class="chip" onclick="setFilter('win',this)">ชนะ</button>
+        <button class="chip" onclick="setFilter('loss',this)">แพ้</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>วันที่เปิด</th><th>วันที่ปิด</th><th>คู่เงิน</th><th>บัญชี</th>
+          <th>ทิศทาง</th><th>Lot</th><th>ความมั่นใจ</th>
+          <th>ราคาเข้า</th><th>ราคาออก</th>
+          <th>P&L live (¢)</th><th>≈ USD</th><th>ผล</th>
+          <th>เหตุผลเข้า</th><th>เหตุผลออก</th><th></th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal เปิดออเดอร์ -->
+<div class="overlay" id="overlayOpen">
+  <div class="modal">
+    <div class="modal-ttl">เปิดออเดอร์ใหม่</div>
+    <div class="info-box info-blue">บันทึกตอนเปิดออเดอร์ — ยังไม่ต้องใส่ราคาออก กดปิดออเดอร์ทีหลังได้เลย</div>
+    <div class="sep">ข้อมูลทั่วไป</div>
+    <div class="fg">
+      <label>คู่เงิน / สินทรัพย์</label>
+      <span class="quick-label">เลือกด่วน:</span>
+      <div class="quick-row">
+        <button type="button" class="qbtn qbtn-gold" onclick="pickSymbol('XAUUSD',this)">🥇 XAUUSD</button>
+        <button type="button" class="qbtn qbtn-btc"  onclick="pickSymbol('BTCUSD',this)">₿ BTCUSD</button>
+        <button type="button" class="qbtn" onclick="pickSymbol('EURUSD',this)">EURUSD</button>
+        <button type="button" class="qbtn" onclick="pickSymbol('GBPUSD',this)">GBPUSD</button>
+        <button type="button" class="qbtn" onclick="pickSymbol('USDJPY',this)">USDJPY</button>
+      </div>
+      <input type="text" id="fSymbol" placeholder="หรือพิมพ์เอง..." oninput="clearSymActive()">
+    </div>
+    <div class="fg-row">
+      <div class="fg"><label>ประเภทบัญชี</label><select id="fAcctType"><option value="cent">¢ Cent Account</option><option value="standard">$ Standard</option></select></div>
+      <div class="fg"><label>ทิศทาง</label><select id="fDir"><option value="buy">BUY / Long</option><option value="sell">SELL / Short</option></select></div>
+    </div>
+    <div class="fg-row">
+      <div class="fg"><label>วันที่เปิด</label><input type="date" id="fDate"></div>
+      <div class="fg"><label>ราคาเข้า</label><input type="number" id="fEntry" placeholder="0.00000" step="any"></div>
+    </div>
+    <div class="fg">
+      <label>Lot Size</label>
+      <span class="quick-label">เลือกด่วน:</span>
+      <div class="quick-row">
+        <button type="button" class="qbtn qbtn-lot" onclick="pickLot('0.01',this)">0.01</button>
+        <button type="button" class="qbtn qbtn-lot" onclick="pickLot('0.05',this)">0.05</button>
+        <button type="button" class="qbtn qbtn-lot" onclick="pickLot('0.10',this)">0.10</button>
+        <button type="button" class="qbtn qbtn-lot" onclick="pickLot('0.20',this)">0.20</button>
+        <button type="button" class="qbtn qbtn-lot" onclick="pickLot('0.50',this)">0.50</button>
+      </div>
+      <input type="number" id="fQty" placeholder="หรือพิมพ์เอง..." step="any" oninput="clearLotActive()">
+    </div>
+    <div class="fg">
+      <label>Pip Value (¢/pip/lot) — ไม่บังคับ</label>
+      <input type="number" id="fPipVal" placeholder="เช่น 10 สำหรับ EURUSD cent" step="any">
+      <div class="hint">หากกรอก จะคำนวณ P&L จาก pip × lot × pip value</div>
+    </div>
+    <div class="sep">ระดับความมั่นใจ</div>
+    <div class="fg">
+      <label>ความมั่นใจในการเข้าออเดอร์นี้</label>
+      <div class="conf-row">
+        <button type="button" class="cbtn" data-conf="low"  onclick="pickConf('low',this)"><span class="c-pct">&lt;30%</span><span class="c-lbl">ไม่มั่นใจ</span></button>
+        <button type="button" class="cbtn" data-conf="med"  onclick="pickConf('med',this)"><span class="c-pct">50%</span><span class="c-lbl">พอใช้</span></button>
+        <button type="button" class="cbtn" data-conf="ok"   onclick="pickConf('ok',this)"><span class="c-pct">70%</span><span class="c-lbl">ค่อนข้างดี</span></button>
+        <button type="button" class="cbtn" data-conf="good" onclick="pickConf('good',this)"><span class="c-pct">80%</span><span class="c-lbl">มั่นใจ</span></button>
+        <button type="button" class="cbtn" data-conf="high" onclick="pickConf('high',this)"><span class="c-pct">&gt;85%</span><span class="c-lbl">มั่นใจมาก</span></button>
+      </div>
+    </div>
+    <div class="sep">เหตุผลเปิดออเดอร์</div>
+    <div class="fg"><label>เลือกสัญญาณ (เลือกได้หลายข้อ)</label><div class="tag-wrap" id="entryTags"></div></div>
+    <div class="fg"><label>เพิ่มเหตุผลเอง</label><input type="text" id="fEntryCustom" placeholder="พิมพ์เหตุผล แล้วกด Enter หรือกดบันทึกได้เลย"></div>
+    <div class="fg"><label>หมายเหตุ</label><textarea id="fNote" rows="2" placeholder="สัญญาณที่เห็น, ความรู้สึก..."></textarea></div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModals()">ยกเลิก</button>
+      <button class="btn btn-green" onclick="saveOpenOrder()">เปิดออเดอร์</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ปิดออเดอร์ -->
+<div class="overlay" id="overlayClose">
+  <div class="modal">
+    <div class="modal-ttl">ปิดออเดอร์</div>
+    <div class="info-box info-green" id="closeInfo"></div>
+    <div class="sep">ข้อมูลการปิด</div>
+    <div class="fg-row">
+      <div class="fg"><label>วันที่ปิด</label><input type="date" id="cDate"></div>
+      <div class="fg"><label>ราคาออก</label><input type="number" id="cExit" placeholder="0.00000" step="any" oninput="updatePnlPreview()"></div>
+    </div>
+    <div class="fg"><label>ค่า Spread / Commission (¢)</label><input type="number" id="cFee" placeholder="0" step="any" value="0" oninput="updatePnlPreview()"></div>
+    <div class="pnl-preview" id="pnlPreview">
+      <span style="color:var(--text2);font-size:12px">P&L คาดการณ์:</span>
+      <span id="pnlPreviewVal" style="font-weight:700;font-size:15px"></span>
+      <span id="usdPreviewVal" style="color:var(--text3);font-size:12px"></span>
+    </div>
+    <div class="sep">เหตุผลปิดออเดอร์</div>
+    <div class="fg"><label>เลือกเหตุผล (เลือกได้หลายข้อ)</label><div class="tag-wrap" id="exitTags"></div></div>
+    <div class="fg"><label>เพิ่มเหตุผลเอง</label><input type="text" id="cExitCustom" placeholder="พิมพ์เหตุผล แล้วกด Enter หรือกดปิดออเดอร์ได้เลย"></div>
+    <div class="fg"><label>หมายเหตุ / บทเรียน</label><textarea id="cNote" rows="2" placeholder="บทเรียนจากเทรดนี้..."></textarea></div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModals()">ยกเลิก</button>
+      <button class="btn btn-dark" onclick="confirmCloseOrder()">ปิดออเดอร์ ✓</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBQ9acVy3Lx3kmMEexjDmMhoHRg39lLKA4",
+  authDomain: "trade-journal-2237f.firebaseapp.com",
+  projectId: "trade-journal-2237f",
+  storageBucket: "trade-journal-2237f.firebasestorage.app",
+  messagingSenderId: "890933581871",
+  appId: "1:890933581871:web:0a680873746bb7665b0eda"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+const tradesCol = collection(db, 'trades');
+const livePricesCol = collection(db, 'livePrices');
+
+
+const ENTRY_REASONS=['Breakout','Pullback','EMA Cross','RSI Oversold','RSI Overbought','MACD Cross','Support Bounce','Resistance Break','Volume Spike','Candlestick Pattern','Gap Up','Gap Down','News / ข่าว','Trend Following','Counter Trend','ตามสัญญาณระบบ'];
+const EXIT_REASONS=['Take Profit','Stop Loss','Trailing Stop','Target ครบ','สัญญาณกลับทิศ','EMA Cross ออก','RSI Overbought','RSI Oversold','Resistance ขวาง','Support แตก','Time Stop','ตัดขาดทุน','ข่าวออก','End of Day','Manual / ดุลพินิจ'];
+const CONF_MAP={low:{label:'<30%',desc:'ไม่มั่นใจ',cls:'conf-low'},med:{label:'50%',desc:'พอใช้',cls:'conf-med'},ok:{label:'70%',desc:'ค่อนข้างดี',cls:'conf-ok'},good:{label:'80%',desc:'มั่นใจ',cls:'conf-good'},high:{label:'>85%',desc:'มั่นใจมาก',cls:'conf-high'}};
+
+let trades=[], filter='open', closingId=null;
+let selEntry=new Set(), selExit=new Set(), selectedConf=null;
+let pnlInst=null, statusInst=null;
+
+function setSyncStatus(s,msg){
+  const dot=document.getElementById('syncDot'),txt=document.getElementById('syncStatus');
+  if(s==='syncing'){dot.className='sync-dot syncing';txt.textContent='กำลัง sync...';}
+  else if(s==='ok'){dot.className='sync-dot';txt.textContent=msg||'Synced ✓';}
+  else{dot.className='sync-dot err';txt.textContent='เชื่อมต่อไม่ได้';}
+}
+
+async function initApp(){
+  // Lock state is local only — start view-only unless this device previously unlocked
+  const locallyUnlocked = getLocalUnlocked();
+  let rdy=false;
+  const q=query(tradesCol,orderBy('createdAt','desc'));
+  onSnapshot(q,(snap)=>{
+    trades=snap.docs.map(d=>({firestoreId:d.id,...d.data()}));
+    if(!rdy){
+      rdy=true;
+      document.getElementById('loadingScreen').style.display='none';
+      document.getElementById('mainApp').style.display='block';
+      applyViewOnly(!locallyUnlocked);
+      if(pendingLock !== null){ applyViewOnly(pendingLock); pendingLock=null; }
+    }
+    setSyncStatus('ok','Real-time sync ✓');
+    render();
+  },(err)=>{ document.getElementById('loadingMsg').textContent='เชื่อมต่อไม่ได้ — ตรวจสอบ Firestore rules'; setSyncStatus('err'); });
+  onSnapshot(livePricesCol,(snap)=>{ snap.docs.forEach(d=>{ livePrices[d.id]=d.data().price||null; }); if(rdy){ renderLivePriceBar(); renderTable(); } });
+}
+initApp();
+
+function fmtAbs(n){return Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtPnl(n){return(n>=0?'+':'-')+'¢'+fmtAbs(n);}
+function calcPnl(t,exitPrice,fee){
+  const f=fee||0;
+  // XAUUSD on cent account: price is in cents of USD per 0.01oz
+  // multiplier=100 for XAU pairs, 1 for crypto/forex pairs
+  const sym=(t.symbol||'').toUpperCase();
+  const isXAU=sym.includes('XAU');
+  const isCent=t.acctType==='cent';
+  const multiplier=(isCent&&isXAU)?100:1;
+  if(t.pipVal>0){const ps=t.entry>20?0.01:0.0001;const pips=(t.dir==='buy'?(exitPrice-t.entry):(t.entry-exitPrice))/ps;return pips*t.qty*t.pipVal-f;}
+  return(t.dir==='buy'?(exitPrice-t.entry):(t.entry-exitPrice))*t.qty*multiplier-f;
+}
+
+window.pickSymbol=(sym,el)=>{document.getElementById('fSymbol').value=sym;document.querySelectorAll('#overlayOpen .qbtn:not(.qbtn-lot)').forEach(b=>b.classList.remove('active'));el.classList.add('active');};
+window.clearSymActive=()=>document.querySelectorAll('#overlayOpen .qbtn:not(.qbtn-lot)').forEach(b=>b.classList.remove('active'));
+window.pickLot=(val,el)=>{document.getElementById('fQty').value=val;document.querySelectorAll('.qbtn-lot').forEach(b=>b.classList.remove('active'));el.classList.add('active');};
+window.clearLotActive=()=>document.querySelectorAll('.qbtn-lot').forEach(b=>b.classList.remove('active'));
+window.pickConf=(val,el)=>{selectedConf=val;document.querySelectorAll('.cbtn').forEach(b=>b.classList.remove('active'));el.classList.add('active');};
+
+function buildTags(wrapId,base,selSet,cls){
+  const w=document.getElementById(wrapId);w.innerHTML='';
+  [...new Set([...base,...selSet])].forEach(opt=>{
+    const el=document.createElement('span');
+    el.className='tag'+(selSet.has(opt)?' '+cls:'');el.textContent=opt;
+    el.onclick=()=>{selSet.has(opt)?(selSet.delete(opt),el.className='tag'):(selSet.add(opt),el.className='tag '+cls);};
+    w.appendChild(el);
+  });
+}
+function addCustomTag(inputId,selSet,wrapId,cls,base){
+  const inp=document.getElementById(inputId),v=inp.value.trim();if(!v)return;
+  selSet.add(v);buildTags(wrapId,base,selSet,cls);inp.value='';
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.activeElement.id==='fEntryCustom')addCustomTag('fEntryCustom',selEntry,'entryTags','sel-entry',ENTRY_REASONS);
+  if(e.key==='Enter'&&document.activeElement.id==='cExitCustom')addCustomTag('cExitCustom',selExit,'exitTags','sel-exit',EXIT_REASONS);
+});
+
+window.openOrderModal=()=>{
+  selEntry=new Set();selectedConf=null;
+  buildTags('entryTags',ENTRY_REASONS,selEntry,'sel-entry');
+  document.getElementById('fDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('fPipVal').value='';document.getElementById('fAcctType').value='cent';
+  ['fSymbol','fEntry','fQty','fNote','fEntryCustom'].forEach(id=>document.getElementById(id).value='');
+  document.querySelectorAll('.qbtn:not(.qbtn-lot)').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.qbtn-lot').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.cbtn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('fSymbol').value='XAUUSD';
+  document.querySelector('.qbtn-gold').classList.add('active');
+  document.getElementById('fQty').value='0.01';
+  document.querySelectorAll('.qbtn-lot')[0].classList.add('active');
+  document.getElementById('overlayOpen').classList.add('open');
+};
+
+window.openCloseModal=(firestoreId)=>{
+  const t=trades.find(x=>x.firestoreId===firestoreId);if(!t)return;
+  closingId=firestoreId;selExit=new Set();
+  buildTags('exitTags',EXIT_REASONS,selExit,'sel-exit');
+  document.getElementById('cDate').value=new Date().toISOString().split('T')[0];
+  ['cExit','cNote','cExitCustom'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cFee').value='0';
+  document.getElementById('pnlPreview').classList.remove('show');
+  const confStr=t.confidence?` | ความมั่นใจ: ${CONF_MAP[t.confidence].label}`:'';
+  document.getElementById('closeInfo').innerHTML=`<strong>${t.symbol}</strong> ${t.dir==='buy'?'LONG':'SHORT'} &nbsp;|&nbsp; เข้า: ${t.entry} &nbsp;|&nbsp; Lot: ${t.qty}${confStr} &nbsp;|&nbsp; เปิด: ${t.date}`;
+  document.getElementById('overlayClose').classList.add('open');
+};
+
+window.closeModals=()=>{
+  document.getElementById('overlayOpen').classList.remove('open');
+  document.getElementById('overlayClose').classList.remove('open');
+  closingId=null;selEntry=new Set();selExit=new Set();selectedConf=null;
+};
+[document.getElementById('overlayOpen'),document.getElementById('overlayClose')].forEach(ov=>{
+  ov.addEventListener('click',e=>{if(e.target===ov)window.closeModals();});
+});
+
+window.updatePnlPreview=()=>{
+  const t=trades.find(x=>x.firestoreId===closingId);if(!t)return;
+  const exit=parseFloat(document.getElementById('cExit').value);
+  const fee=parseFloat(document.getElementById('cFee').value)||0;
+  if(isNaN(exit)){document.getElementById('pnlPreview').classList.remove('show');return;}
+  const pnl=calcPnl(t,exit,fee);
+  document.getElementById('pnlPreview').classList.add('show');
+  document.getElementById('pnlPreviewVal').textContent=fmtPnl(pnl);
+  document.getElementById('pnlPreviewVal').style.color=pnl>=0?'var(--green)':'var(--red)';
+  document.getElementById('usdPreviewVal').textContent='≈ $'+(pnl/100).toFixed(2);
+};
+
+window.saveOpenOrder=async()=>{
+  const symbol=document.getElementById('fSymbol').value.trim().toUpperCase();
+  const entry=parseFloat(document.getElementById('fEntry').value);
+  const qty=parseFloat(document.getElementById('fQty').value);
+  if(!symbol||isNaN(entry)||isNaN(qty)||qty<=0){alert('กรุณากรอก: คู่เงิน, ราคาเข้า, Lot');return;}
+  const customEntry=document.getElementById('fEntryCustom').value.trim();
+  if(customEntry)selEntry.add(customEntry);
+  setSyncStatus('syncing');
+  try{
+    await addDoc(tradesCol,{
+      createdAt:Date.now(),
+      date:document.getElementById('fDate').value,closeDate:null,
+      symbol,acctType:document.getElementById('fAcctType').value,
+      dir:document.getElementById('fDir').value,
+      entry,qty,exit:null,fee:0,pnl:0,
+      pipVal:parseFloat(document.getElementById('fPipVal').value)||0,
+      status:'open',confidence:selectedConf,
+      entryReasons:[...selEntry],exitReasons:[],
+      note:document.getElementById('fNote').value.trim(),closeNote:''
+    });
+    window.closeModals();
+  }catch(e){setSyncStatus('err');alert('บันทึกไม่ได้: '+e.message);}
+};
+
+window.confirmCloseOrder=async()=>{
+  const t=trades.find(x=>x.firestoreId===closingId);if(!t)return;
+  const exit=parseFloat(document.getElementById('cExit').value);
+  if(isNaN(exit)){alert('กรุณากรอกราคาออก');return;}
+  const fee=parseFloat(document.getElementById('cFee').value)||0;
+  const customExit=document.getElementById('cExitCustom').value.trim();
+  if(customExit)selExit.add(customExit);
+  const pnl=calcPnl(t,exit,fee);
+  setSyncStatus('syncing');
+  try{
+    await updateDoc(doc(db,'trades',closingId),{
+      exit,fee,pnl,status:'closed',
+      closeDate:document.getElementById('cDate').value,
+      exitReasons:[...selExit],
+      closeNote:document.getElementById('cNote').value.trim()
+    });
+    window.closeModals();
+  }catch(e){setSyncStatus('err');alert('อัปเดตไม่ได้: '+e.message);}
+};
+
+window.deleteTrade=async(firestoreId)=>{
+  if(!confirm('ลบรายการนี้?'))return;
+  setSyncStatus('syncing');
+  try{await deleteDoc(doc(db,'trades',firestoreId));}
+  catch(e){setSyncStatus('err');alert('ลบไม่ได้: '+e.message);}
+};
+
+window.setFilter=(f,el)=>{
+  filter=f;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active','active-open'));
+  el.classList.add(f==='open'?'active-open':'active');
+  renderTable();
+};
+
+function render(){
+  const closed=trades.filter(t=>t.status==='closed');
+  const open=trades.filter(t=>t.status==='open');
+  const wins=closed.filter(t=>t.pnl>0),losses=closed.filter(t=>t.pnl<=0);
+  const total=closed.reduce((s,t)=>s+t.pnl,0);
+  const wr=closed.length?Math.round(wins.length/closed.length*100):0;
+  const pnlEl=document.getElementById('sTotalPnl');
+  pnlEl.textContent=fmtPnl(total);pnlEl.className='stat-val '+(total>=0?'pos':'neg');
+  document.getElementById('sTotalSub').textContent=trades.length+' รายการ (ปิดแล้ว '+closed.length+')';
+  document.getElementById('sWinRate').textContent=wr+'%';
+  document.getElementById('sWinLoss').textContent='ชนะ '+wins.length+' / แพ้ '+losses.length;
+  document.getElementById('sOpenCount').textContent=open.length;
+  document.getElementById('sUSD').textContent='$'+(total/100).toFixed(2);
+  renderPnlChart();renderStatusChart();renderLivePriceBar();renderTable();
+}
+
+function renderPnlChart(){
+  const dayMap={};
+  trades.filter(t=>t.status==='closed').forEach(t=>{const d=t.closeDate||t.date;dayMap[d]=(dayMap[d]||0)+t.pnl;});
+  const labels=Object.keys(dayMap).sort().slice(-14);
+  const data=labels.map(d=>parseFloat(dayMap[d].toFixed(2)));
+  const colors=data.map(v=>v>=0?'#1D9E75':'#D85A30');
+  if(pnlInst)pnlInst.destroy();
+  pnlInst=new Chart(document.getElementById('pnlChart'),{
+    type:'bar',data:{labels,datasets:[{data,backgroundColor:colors,borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:11},color:'#9a9995',maxRotation:45},grid:{display:false}},
+        y:{ticks:{font:{size:11},color:'#9a9995',callback:v=>'¢'+v.toLocaleString()},grid:{color:'rgba(0,0,0,0.05)'}}}}
+  });
+}
+
+function renderStatusChart(){
+  const o=trades.filter(t=>t.status==='open').length;
+  const c=trades.filter(t=>t.status==='closed').length;
+  const legend=document.getElementById('statusLegend');
+  if(statusInst)statusInst.destroy();
+  if(!trades.length){legend.innerHTML='<span style="color:#9a9995">ยังไม่มีข้อมูล</span>';return;}
+  statusInst=new Chart(document.getElementById('statusChart'),{
+    type:'doughnut',
+    data:{labels:['เปิดอยู่','ปิดแล้ว'],datasets:[{data:[o,c],backgroundColor:['#378ADD','#1D9E75'],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false}}}
+  });
+  legend.innerHTML=[['เปิดอยู่','#378ADD',o],['ปิดแล้ว','#1D9E75',c]].map(([l,cl,n])=>`<span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${cl}"></span>${l} (${n})</span>`).join('');
+}
+
+function confBadge(conf){
+  if(!conf)return'<span style="color:var(--text3);font-size:11px">—</span>';
+  const c=CONF_MAP[conf];return`<span class="conf-badge ${c.cls}">${c.label} ${c.desc}</span>`;
+}
+
+function renderTable(){
+  let list;
+  if(filter==='open')list=trades.filter(t=>t.status==='open');
+  else if(filter==='win')list=trades.filter(t=>t.status==='closed'&&t.pnl>0);
+  else if(filter==='loss')list=trades.filter(t=>t.status==='closed'&&t.pnl<=0);
+  else list=trades;
+  const tb=document.getElementById('tbody');
+  if(!list.length){tb.innerHTML=`<tr><td colspan="15" class="empty-msg">${filter==='open'?'ไม่มีออเดอร์ที่เปิดอยู่ — กด "+ เปิดออเดอร์" เพื่อเริ่ม':'ไม่มีรายการในหมวดนี้'}</td></tr>`;return;}
+  tb.innerHTML=list.map(t=>{
+    const isOpen=t.status==='open',isCent=t.acctType==='cent';
+    const lp=livePrices[t.symbol]||null;
+    const livePnl=isOpen&&lp?calcPnl(t,lp,0):null;
+    const pnlCell=isOpen
+      ?(livePnl!==null?`<span class="${livePnl>=0?'pnl-pos':'pnl-neg'}" style="font-size:13px">${fmtPnl(livePnl)}</span>`:'<span style="color:#9a9995;font-size:11px">—</span>')
+      :`<span class="${t.pnl>=0?'pnl-pos':'pnl-neg'}">${fmtPnl(t.pnl)}</span>`;
+    const usdCell=isOpen
+      ?(livePnl!==null?`<span class="${livePnl>=0?'pnl-pos':'pnl-neg'}" style="font-size:11px">$${(livePnl/100).toFixed(2)}</span>`:'—')
+      :'$'+(t.pnl/100).toFixed(2);
+    const statusCell=isOpen?`<button class="close-btn" onclick="openCloseModal('${t.firestoreId}')">ปิดออเดอร์</button>`:`<span class="bdg ${t.pnl>0?'bdg-win':'bdg-loss'}">${t.pnl>0?'ชนะ':'แพ้'}</span>`;
+    const er=(t.entryReasons||[]).map(r=>`<span class="reason-pill">${r}</span>`).join('')||'—';
+    const xr=(t.exitReasons||[]).map(r=>`<span class="reason-pill">${r}</span>`).join('')||'—';
+    return`<tr class="${isOpen?'open-row':''}">
+      <td style="color:var(--text2)">${t.date}</td>
+      <td style="color:var(--text3)">${t.closeDate||'—'}</td>
+      <td style="font-weight:700">${t.symbol}</td>
+      <td><span class="bdg ${isCent?'bdg-cent':'bdg-std'}">${isCent?'¢':'$'}</span></td>
+      <td><span class="bdg ${t.dir==='buy'?'bdg-buy':'bdg-sell'}">${t.dir==='buy'?'LONG':'SHORT'}</span></td>
+      <td>${t.qty}</td>
+      <td>${confBadge(t.confidence)}</td>
+      <td>${t.entry}</td>
+      <td>${isOpen?'<span style="color:#9a9995">—</span>':t.exit}</td>
+      <td>${pnlCell}</td>
+      <td style="font-size:11px">${usdCell}</td>
+      <td>${statusCell}</td>
+      <td style="max-width:160px;white-space:normal">${er}</td>
+      <td style="max-width:160px;white-space:normal">${xr}</td>
+      <td><button class="del-btn" onclick="deleteTrade('${t.firestoreId}')">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+const livePrices={};
+
+function renderLivePriceBar(){
+  const openTrades=trades.filter(t=>t.status==='open');
+  const bar=document.getElementById('livePriceBar');
+  const wrap=document.getElementById('livePriceInputs');
+  if(!openTrades.length){bar.style.display='none';return;}
+  // get unique symbols
+  const symbols=[...new Set(openTrades.map(t=>t.symbol))];
+  bar.style.display='block';
+  wrap.innerHTML=symbols.map(sym=>{
+    const isCent=openTrades.find(t=>t.symbol===sym)?.acctType==='cent';
+    const count=openTrades.filter(t=>t.symbol===sym).length;
+    return`<div style="display:flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px">
+      <span style="font-size:12px;font-weight:600;color:var(--text)">${sym}</span>
+      <span style="font-size:10px;color:var(--text3)">(${count} ออเดอร์)</span>
+      <input type="text" inputmode="decimal" placeholder="ราคาตลาด"
+        value="${livePrices[sym]||''}"
+        style="width:120px;font-size:13px;padding:5px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);color:var(--text);outline:none;font-family:inherit"
+        oninput="updateLivePrice('${sym}',this.value)">
+      ${livePrices[sym]?`<span style="font-size:11px;color:var(--text3)">${isCent?'¢':'$'}</span>`:''}
+    </div>`;
+  }).join('');
+}
+
+window.updateLivePrice=async(symbol,val)=>{
+  const price=parseFloat(val)||null;
+  livePrices[symbol]=price;
+  renderTable();
+  // sync to Firebase so all devices update
+  try{
+    if(price){
+      await setDoc(doc(db,'livePrices',symbol),{price,updatedAt:Date.now()});
+    } else {
+      await deleteDoc(doc(db,'livePrices',symbol));
+    }
+  }catch(e){ console.warn('livePrices sync error',e); }
+};
+
+window.exportCSV=()=>{
+  if(!trades.length){alert('ไม่มีข้อมูล');return;}
+  const hdr=['วันที่เปิด','วันที่ปิด','คู่เงิน','บัญชี','ทิศทาง','Lot','ความมั่นใจ','ราคาเข้า','ราคาออก','P&L(¢)','P&L(USD)','สถานะ','เหตุผลเข้า','เหตุผลออก','หมายเหตุ'];
+  const rows=trades.map(t=>[t.date,t.closeDate||'',t.symbol,t.acctType==='cent'?'Cent':'Standard',t.dir==='buy'?'LONG':'SHORT',t.qty,t.confidence?CONF_MAP[t.confidence].label+' '+CONF_MAP[t.confidence].desc:'',t.entry,t.exit||'',t.status==='closed'?t.pnl.toFixed(2):'',t.status==='closed'?(t.pnl/100).toFixed(2):'',t.status==='open'?'เปิดอยู่':'ปิดแล้ว',(t.entryReasons||[]).join('; '),(t.exitReasons||[]).join('; '),t.note||''].map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(','));
+  const csv='\uFEFF'+[hdr.join(','),...rows].join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='trade-journal-'+new Date().toISOString().split('T')[0]+'.csv';a.click();
+};
+</script>
+
+<!-- Change PIN Modal -->
+<div class="pin-overlay" id="changePinOverlay">
+  <div class="pin-box">
+    <h3 id="changePinTitle">🔑 เปลี่ยนรหัส PIN</h3>
+    <p id="changePinDesc">กรอก PIN เดิมก่อน</p>
+    <div class="pin-dots" id="changePinDots">
+      <div class="pin-dot" id="cpd0"></div>
+      <div class="pin-dot" id="cpd1"></div>
+      <div class="pin-dot" id="cpd2"></div>
+      <div class="pin-dot" id="cpd3"></div>
+    </div>
+    <div class="pin-pad">
+      <button class="pin-key" onclick="changePinInput('1')">1</button>
+      <button class="pin-key" onclick="changePinInput('2')">2</button>
+      <button class="pin-key" onclick="changePinInput('3')">3</button>
+      <button class="pin-key" onclick="changePinInput('4')">4</button>
+      <button class="pin-key" onclick="changePinInput('5')">5</button>
+      <button class="pin-key" onclick="changePinInput('6')">6</button>
+      <button class="pin-key" onclick="changePinInput('7')">7</button>
+      <button class="pin-key" onclick="changePinInput('8')">8</button>
+      <button class="pin-key" onclick="changePinInput('9')">9</button>
+      <button class="pin-key" style="opacity:.3" onclick="changePinClear()">✕</button>
+      <button class="pin-key" onclick="changePinInput('0')">0</button>
+      <button class="pin-key" onclick="changePinBackspace()">⌫</button>
+    </div>
+    <div class="pin-error" id="changePinError"></div>
+    <button class="btn" style="width:100%;justify-content:center" onclick="closeChangePinModal()">ยกเลิก</button>
+  </div>
+</div>
+
+<!-- PIN Modal -->
+<div class="pin-overlay" id="pinOverlay">
+  <div class="pin-box">
+    <h3 id="pinTitle">ตั้งรหัส PIN</h3>
+    <p id="pinDesc">กรอก PIN 4 หลัก</p>
+    <div class="pin-dots" id="pinDots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-pad">
+      <button class="pin-key" onclick="pinInput('1')">1</button>
+      <button class="pin-key" onclick="pinInput('2')">2</button>
+      <button class="pin-key" onclick="pinInput('3')">3</button>
+      <button class="pin-key" onclick="pinInput('4')">4</button>
+      <button class="pin-key" onclick="pinInput('5')">5</button>
+      <button class="pin-key" onclick="pinInput('6')">6</button>
+      <button class="pin-key" onclick="pinInput('7')">7</button>
+      <button class="pin-key" onclick="pinInput('8')">8</button>
+      <button class="pin-key" onclick="pinInput('9')">9</button>
+      <button class="pin-key" style="opacity:.3" onclick="pinClear()">✕</button>
+      <button class="pin-key" onclick="pinInput('0')">0</button>
+      <button class="pin-key" onclick="pinBackspace()">⌫</button>
+    </div>
+    <div class="pin-error" id="pinError"></div>
+    <button class="btn" style="width:100%;justify-content:center" onclick="closePinModal()">ยกเลิก</button>
+  </div>
+</div>
+
+
+<script>
+// ── PIN / View-only ────────────────────────────────────────────────────
+// Lock state is LOCAL only — each device starts in view-only mode.
+// PIN is stored in localStorage. Only the owner's device can unlock.
+const PIN_KEY = 'tj_pin';
+const UNLOCKED_KEY = 'tj_unlocked';
+let pinBuffer = '';
+let pinMode = 'unlock';
+let isViewOnly = true;
+
+function getSavedPin(){ return localStorage.getItem(PIN_KEY)||null; }
+function savePin(p){ localStorage.setItem(PIN_KEY,p); }
+function getLocalUnlocked(){ return localStorage.getItem(UNLOCKED_KEY)==='1'; }
+function setLocalUnlocked(v){ if(v) localStorage.setItem(UNLOCKED_KEY,'1'); else localStorage.removeItem(UNLOCKED_KEY); }
+
+let pendingLock = null;
+
+function applyViewOnly(v){
+  isViewOnly = v;
+  const banner = document.getElementById('viewOnlyBanner');
+  const lockBtn = document.getElementById('lockToggleBtn');
+  if(!banner || !lockBtn){
+    pendingLock = v;
+    return;
+  }
+  pendingLock = null;
+  if(v){
+    document.body.classList.add('view-only');
+    banner.classList.add('show');
+    lockBtn.textContent = '🔓 ปลดล็อก';
+    lockBtn.onclick = ()=>showPinModal('unlock');
+  } else {
+    document.body.classList.remove('view-only');
+    banner.classList.remove('show');
+    lockBtn.textContent = '🔒 ล็อก';
+    lockBtn.onclick = ()=>lockNow();
+  }
+  setTimeout(updateChangePinBtn, 0);
+}
+
+function lockNow(){
+  setLocalUnlocked(false);
+  applyViewOnly(true);
+}
+
+function showPinModal(mode){
+  pinMode = mode;
+  pinBuffer = '';
+  updatePinDots();
+  document.getElementById('pinError').textContent = '';
+  const saved = getSavedPin();
+  if(mode === 'unlock'){
+    if(!saved){
+      document.getElementById('pinTitle').textContent = '🔒 ตั้งรหัส PIN';
+      document.getElementById('pinDesc').textContent = 'ตั้ง PIN 4 หลักเพื่อปลดล็อกการแก้ไข';
+    } else {
+      document.getElementById('pinTitle').textContent = '🔓 ปลดล็อก';
+      document.getElementById('pinDesc').textContent = 'กรอก PIN เพื่อแก้ไขข้อมูล';
+    }
+  }
+  document.getElementById('pinOverlay').classList.add('open');
+}
+
+function closePinModal(){
+  document.getElementById('pinOverlay').classList.remove('open');
+  pinBuffer = '';
+  updatePinDots();
+}
+
+function updatePinDots(){
+  for(let i=0;i<4;i++){
+    document.getElementById('pd'+i).classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+
+function pinInput(d){
+  if(pinBuffer.length >= 4) return;
+  pinBuffer += d;
+  updatePinDots();
+  if(pinBuffer.length === 4) setTimeout(confirmPin, 150);
+}
+
+function pinBackspace(){ pinBuffer = pinBuffer.slice(0,-1); updatePinDots(); }
+function pinClear(){ pinBuffer = ''; updatePinDots(); }
+
+function confirmPin(){
+  const saved = getSavedPin();
+  const err = document.getElementById('pinError');
+  err.textContent = '';
+  if(!saved){
+    // First time — set new PIN and unlock
+    savePin(pinBuffer);
+    setLocalUnlocked(true);
+    applyViewOnly(false);
+    closePinModal();
+  } else {
+    if(pinBuffer === saved){
+      setLocalUnlocked(true);
+      applyViewOnly(false);
+      closePinModal();
+    } else {
+      err.textContent = 'PIN ไม่ถูกต้อง ลองใหม่';
+      pinBuffer=''; updatePinDots();
+    }
+  }
+}
+
+// Block actions in view-only mode via event delegation
+document.addEventListener('click', function(e){
+  if(!isViewOnly) return;
+  const btn = e.target.closest('.btn-green, .close-btn, .del-btn');
+  if(btn){ e.stopImmediatePropagation(); e.preventDefault(); showPinModal('unlock'); }
+}, true);
+
+// Show/hide change PIN button based on unlock state
+function updateChangePinBtn(){
+  const btn = document.getElementById('changePinBtn');
+  if(btn) btn.style.display = !isViewOnly && getSavedPin() ? 'inline-flex' : 'none';
+}
+
+// Override applyViewOnly to also update change PIN button
+const _origApplyViewOnly = applyViewOnly;
+// Patch: call updateChangePinBtn after applyViewOnly
+const _applyViewOnlyOrig = applyViewOnly;
+
+// ── Change PIN ─────────────────────────────────────────────────────────
+let changePinBuffer = '';
+let changePinStep = 'old'; // 'old' | 'new' | 'confirm'
+let changePinNew = '';
+
+function showChangePinModal(){
+  changePinBuffer = '';
+  changePinStep = 'old';
+  changePinNew = '';
+  document.getElementById('changePinTitle').textContent = '🔑 เปลี่ยนรหัส PIN';
+  document.getElementById('changePinDesc').textContent = 'กรอก PIN เดิมก่อน';
+  document.getElementById('changePinError').textContent = '';
+  updateChangePinDots();
+  document.getElementById('changePinOverlay').classList.add('open');
+}
+
+function closeChangePinModal(){
+  document.getElementById('changePinOverlay').classList.remove('open');
+  changePinBuffer = '';
+  updateChangePinDots();
+}
+
+function updateChangePinDots(){
+  for(let i=0;i<4;i++){
+    document.getElementById('cpd'+i).classList.toggle('filled', i < changePinBuffer.length);
+  }
+}
+
+function changePinInput(d){
+  if(changePinBuffer.length >= 4) return;
+  changePinBuffer += d;
+  updateChangePinDots();
+  if(changePinBuffer.length === 4) setTimeout(confirmChangePin, 150);
+}
+
+function changePinBackspace(){ changePinBuffer = changePinBuffer.slice(0,-1); updateChangePinDots(); }
+function changePinClear(){ changePinBuffer = ''; updateChangePinDots(); }
+
+function confirmChangePin(){
+  const err = document.getElementById('changePinError');
+  err.textContent = '';
+  if(changePinStep === 'old'){
+    if(changePinBuffer === getSavedPin()){
+      changePinStep = 'new';
+      changePinBuffer = '';
+      document.getElementById('changePinDesc').textContent = 'กรอก PIN ใหม่ 4 หลัก';
+      updateChangePinDots();
+    } else {
+      err.textContent = 'PIN เดิมไม่ถูกต้อง ลองใหม่';
+      changePinBuffer = ''; updateChangePinDots();
+    }
+  } else if(changePinStep === 'new'){
+    changePinNew = changePinBuffer;
+    changePinStep = 'confirm';
+    changePinBuffer = '';
+    document.getElementById('changePinDesc').textContent = 'ยืนยัน PIN ใหม่อีกครั้ง';
+    updateChangePinDots();
+  } else if(changePinStep === 'confirm'){
+    if(changePinBuffer === changePinNew){
+      savePin(changePinNew);
+      closeChangePinModal();
+      alert('✅ เปลี่ยน PIN สำเร็จแล้วครับ');
+    } else {
+      err.textContent = 'PIN ไม่ตรงกัน กรุณาเริ่มใหม่';
+      changePinStep = 'new';
+      changePinNew = '';
+      changePinBuffer = '';
+      document.getElementById('changePinDesc').textContent = 'กรอก PIN ใหม่ 4 หลัก';
+      updateChangePinDots();
+    }
+  }
+}
+</script>
+
+</body>
+</html>
