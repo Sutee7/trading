@@ -126,7 +126,7 @@ body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-heigh
   <div class="header-top">
     <a class="back-btn" href="index.html">‹ กลับ</a>
     <div class="header-title">Cent Account</div>
-    <div class="header-badge">Cent</div>
+    <span id="sync-status" style="font-size:11px;color:#1D9E75;margin-left:4px">● กำลังเชื่อมต่อ...</span><div class="header-badge" style="margin-left:4px">Cent</div>
   </div>
   <div class="balance-row">
     <div class="bal-card bal-pnl">
@@ -340,35 +340,117 @@ body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-heigh
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script>
-const STORAGE_KEY = 'tj_cent_orders';
+
+<!-- Firebase -->
+<div class="loading-screen" id="loadingScreen" style="position:fixed;inset:0;background:#F8F7F4;z-index:999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px">
+  <div style="width:28px;height:28px;border:2.5px solid #e0ded8;border-top-color:#1D9E75;border-radius:50%;animation:spin .7s linear infinite"></div>
+  <div style="font-size:13px;color:#888" id="loadingMsg">กำลังเชื่อมต่อ Firebase...</div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBQ9acVy3Lx3kmMEexjDmMhoHRg39lLKA4",
+  authDomain: "trade-journal-2237f.firebaseapp.com",
+  projectId: "trade-journal-2237f",
+  storageBucket: "trade-journal-2237f.firebasestorage.app",
+  messagingSenderId: "890933581871",
+  appId: "1:890933581871:web:0a680873746bb7665b0eda"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const centCol = collection(db, 'cent_trades');
+
 const SL_LIMIT_CENT = 1500;
 function calcCent(diff,lot){return Math.abs(diff)*lot*100;}
-function fmtCent(c){return(c>=0?'+¢':'-¢')+Math.abs(c).toFixed(0);}
 const emotionMap = {calm:'สงบ',confident:'มั่นใจ',fomo:'FOMO',revenge:'แก้แค้น',fear:'กลัว',greedy:'โลภ'};
 const emotionColor = {calm:'#1D9E75',confident:'#378ADD',fomo:'#EF9F27',revenge:'#E24B4A',fear:'#BA7517',greedy:'#D4537E'};
 
-let orders = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let orders = [];
 let currentFilter = 'all';
 let chartInst = null;
 let timerInt = null;
 let timerSecs = 1800;
+let syncDot = null;
 
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)); updateHeader(); }
+// ── Firebase Init ──────────────────────────────────────────
+const q = query(centCol, orderBy('createdAt','desc'));
+onSnapshot(q, (snap) => {
+  orders = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+  document.getElementById('loadingScreen').style.display = 'none';
+  updateHeader();
+  const activePage = document.querySelector('.page.active');
+  if(activePage){
+    if(activePage.id === 'page-history') renderHistory();
+    if(activePage.id === 'page-stats') renderStats();
+  }
+  setSyncStatus('ok');
+}, (err) => {
+  document.getElementById('loadingMsg').textContent = 'เชื่อมต่อไม่ได้ — ตรวจสอบอินเทอร์เน็ต';
+  setSyncStatus('err');
+});
 
+function setSyncStatus(s){
+  const el = document.getElementById('sync-status');
+  if(!el) return;
+  if(s==='ok') { el.textContent='● Synced'; el.style.color='#1D9E75'; }
+  else if(s==='syncing') { el.textContent='● Syncing...'; el.style.color='#BA7517'; }
+  else { el.textContent='● ไม่ได้เชื่อมต่อ'; el.style.color='#E24B4A'; }
+}
+
+async function saveOrder() {
+  const date = document.getElementById('f-date').value;
+  const symbol = document.getElementById('f-symbol').value.trim();
+  const dir = document.getElementById('f-dir').value;
+  const lot = parseFloat(document.getElementById('f-lot').value);
+  const entry = parseFloat(document.getElementById('f-entry').value);
+  const tp = parseFloat(document.getElementById('f-tp').value);
+  const sl = parseFloat(document.getElementById('f-sl').value);
+  const pnlRaw = document.getElementById('f-pnl').value;
+  const pnl = pnlRaw !== '' ? parseFloat(pnlRaw) : null;
+  const reason = document.getElementById('f-reason').value;
+  const emotion = document.getElementById('f-emotion').value;
+  const rules = document.getElementById('f-rules').value;
+  if (!date || !symbol || !lot || !entry || !tp || !sl) { alert('กรุณากรอกข้อมูลให้ครบครับ'); return; }
+  setSyncStatus('syncing');
+  try {
+    await addDoc(centCol, { date, symbol, dir, lot, entry, tp, sl, pnl, reason, emotion, rules, createdAt: Date.now() });
+    ['f-lot','f-entry','f-tp','f-sl','f-pnl','f-reason'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('risk-info').style.display = 'none';
+    document.getElementById('risk-warn').style.display = 'none';
+    document.getElementById('emotion-warn').style.display = 'none';
+    alert('บันทึกแล้วครับ ✓');
+  } catch(e) { alert('บันทึกไม่สำเร็จ: ' + e.message); setSyncStatus('err'); }
+}
+
+async function deleteOrder(id) {
+  if (!confirm('ลบ Order นี้?')) return;
+  setSyncStatus('syncing');
+  try { await deleteDoc(doc(db, 'cent_trades', id)); }
+  catch(e) { alert('ลบไม่สำเร็จ'); setSyncStatus('err'); }
+}
+
+window.saveOrder = saveOrder;
+window.deleteOrder = deleteOrder;
+
+// ── UI Functions ───────────────────────────────────────────
 function updateHeader() {
   const closed = orders.filter(o => o.pnl != null);
   const wins = closed.filter(o => o.pnl > 0);
   const net = closed.reduce((a, o) => a + parseFloat(o.pnl), 0);
   const wr = closed.length ? Math.round(wins.length / closed.length * 100) + '%' : '—';
   const pnlEl = document.getElementById('bal-pnl');
-  const netCent = net * 100; pnlEl.textContent = (netCent >= 0 ? '+¢' : '-¢') + Math.abs(netCent).toFixed(0) + ' ($' + Math.abs(net).toFixed(2) + ')';
+  pnlEl.textContent = (net >= 0 ? '+¢' : '-¢') + Math.abs(net).toFixed(0) + ' ($' + Math.abs(net/100).toFixed(2) + ')';
   pnlEl.style.color = net >= 0 ? '#0F6E56' : '#E24B4A';
   document.getElementById('bal-wr').textContent = wr;
   document.getElementById('bal-orders').textContent = orders.length;
 }
 
-function switchTab(name, btn) {
+window.switchTab = function(name, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
@@ -377,29 +459,29 @@ function switchTab(name, btn) {
   if (name === 'stats') renderStats();
 }
 
-function toggle(el) { el.classList.toggle('checked'); }
+window.toggle = function(el) { el.classList.toggle('checked'); }
 
-function checkAll() {
+window.checkAll = function() {
   const total = document.querySelectorAll('#main-checklist .check-item').length;
   const checked = document.querySelectorAll('#main-checklist .check-item.checked').length;
   document.getElementById('result-ok').style.display = checked === total ? 'block' : 'none';
   document.getElementById('result-fail').style.display = checked < total ? 'block' : 'none';
 }
 
-function resetChecklist() {
+window.resetChecklist = function() {
   document.querySelectorAll('#main-checklist .check-item').forEach(i => i.classList.remove('checked'));
   document.getElementById('result-ok').style.display = 'none';
   document.getElementById('result-fail').style.display = 'none';
 }
 
-function startTimer() {
+window.startTimer = function() {
   document.getElementById('timer-section').style.display = 'block';
   document.getElementById('checklist-section').style.display = 'none';
   timerSecs = 1800; updateTimer();
   timerInt = setInterval(() => { timerSecs--; updateTimer(); if (timerSecs <= 0) stopTimer(); }, 1000);
 }
 
-function stopTimer() {
+window.stopTimer = function() {
   clearInterval(timerInt);
   document.getElementById('timer-section').style.display = 'none';
   document.getElementById('checklist-section').style.display = 'block';
@@ -413,7 +495,7 @@ function updateTimer() {
 function getCapital(){ return parseFloat(document.getElementById('f-capital').value) || 0; }
 function getRiskPct(){ return parseFloat(document.getElementById('f-risk-pct').value) || 1; }
 
-function saveCapital(){
+window.saveCapital = function(){
   const cap = document.getElementById('f-capital').value;
   const pct = document.getElementById('f-risk-pct').value;
   localStorage.setItem('tj_cent_capital', cap);
@@ -434,7 +516,6 @@ function updateCapitalDisplay(){
     document.getElementById('max-risk-usd').textContent = '$' + (maxRisk/100).toFixed(2);
     document.getElementById('max-daily').textContent = '¢' + maxDaily.toFixed(0) + ' ($' + (maxDaily/100).toFixed(2) + ')';
     resultEl.style.display = 'block';
-    // Update limit box dynamically
     document.getElementById('limit-sl').textContent = 'ไม่เกิน ¢' + maxRisk.toFixed(0) + ' ($' + (maxRisk/100).toFixed(2) + ')';
     document.getElementById('limit-daily').textContent = 'ไม่เกิน ¢' + maxDaily.toFixed(0) + ' ($' + (maxDaily/100).toFixed(2) + ')';
   } else {
@@ -445,7 +526,7 @@ function updateCapitalDisplay(){
   }
 }
 
-function calcRisk() {
+window.calcRisk = function() {
   const entry = parseFloat(document.getElementById('f-entry').value);
   const sl = parseFloat(document.getElementById('f-sl').value);
   const tp = parseFloat(document.getElementById('f-tp').value);
@@ -461,7 +542,6 @@ function calcRisk() {
   const rv = document.getElementById('risk-val');
   rv.textContent = '¢' + slCent.toFixed(0) + ' ($' + (slCent/100).toFixed(2) + ')';
   rv.className = slCent > maxRisk ? 'red' : 'green';
-  // Show % of capital
   const pctRow = document.getElementById('risk-pct-row');
   const pctVal = document.getElementById('risk-pct-val');
   if(cap > 0){
@@ -469,68 +549,33 @@ function calcRisk() {
     const actualPct = (slCent / cap * 100).toFixed(2);
     pctVal.textContent = actualPct + '%';
     pctVal.className = slCent > maxRisk ? 'red' : 'green';
-  } else {
-    pctRow.style.display = 'none';
-  }
+  } else { pctRow.style.display = 'none'; }
   document.getElementById('tp-val').textContent = tpCent ? '+¢' + tpCent.toFixed(0) + ' ($' + (tpCent/100).toFixed(2) + ')' : '-';
   document.getElementById('rr-val').textContent = rr ? '1:' + rr : '-';
   const warnEl = document.getElementById('risk-warn');
   if(slCent > maxRisk){
     warnEl.style.display = 'block';
-    warnEl.textContent = cap > 0
-      ? 'SL เกิน ' + pct + '% ของทุน (¢' + maxRisk.toFixed(0) + ') — ปรับ Lot หรือ SL ก่อนครับ'
-      : 'SL เกิน ¢1,500 ($15) — ปรับ Lot หรือ SL ก่อนครับ';
-  } else {
-    warnEl.style.display = 'none';
-  }
+    warnEl.textContent = cap > 0 ? 'SL เกิน ' + pct + '% ของทุน (¢' + maxRisk.toFixed(0) + ') — ปรับ Lot หรือ SL ก่อนครับ' : 'SL เกิน ¢1,500 ($15) — ปรับ Lot หรือ SL ก่อนครับ';
+  } else { warnEl.style.display = 'none'; }
 }
 
-function saveOrder() {
-  const date = document.getElementById('f-date').value;
-  const symbol = document.getElementById('f-symbol').value.trim();
-  const dir = document.getElementById('f-dir').value;
-  const lot = parseFloat(document.getElementById('f-lot').value);
-  const entry = parseFloat(document.getElementById('f-entry').value);
-  const tp = parseFloat(document.getElementById('f-tp').value);
-  const sl = parseFloat(document.getElementById('f-sl').value);
-  const pnlRaw = document.getElementById('f-pnl').value;
-  const pnl = pnlRaw !== '' ? parseFloat(pnlRaw) : null;
-  const reason = document.getElementById('f-reason').value;
-  const emotion = document.getElementById('f-emotion').value;
-  const rules = document.getElementById('f-rules').value;
-  if (!date || !symbol || !lot || !entry || !tp || !sl) { alert('กรุณากรอกข้อมูลให้ครบครับ'); return; }
-  orders.unshift({ id: Date.now(), date, symbol, dir, lot, entry, tp, sl, pnl, reason, emotion, rules });
-  save();
-  ['f-lot','f-entry','f-tp','f-sl','f-pnl','f-reason'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('risk-info').style.display = 'none';
-  document.getElementById('risk-warn').style.display = 'none';
-  document.getElementById('emotion-warn').style.display = 'none';
-  alert('บันทึกแล้วครับ');
-}
-
-function setFilter(f, btn) {
+window.setFilter = function(f, btn) {
   currentFilter = f;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderHistory();
 }
 
-function deleteOrder(id) {
-  if (!confirm('ลบ Order นี้?')) return;
-  orders = orders.filter(o => o.id !== id);
-  save(); renderHistory();
-}
-
 function renderHistory() {
   const closed = orders.filter(o => o.pnl != null);
   const wins = closed.filter(o => o.pnl > 0);
   const losses = closed.filter(o => o.pnl < 0);
-  const profit = wins.reduce((a, o) => a + o.pnl, 0);
-  const loss = losses.reduce((a, o) => a + o.pnl, 0);
+  const profit = wins.reduce((a, o) => a + parseFloat(o.pnl), 0);
+  const loss = losses.reduce((a, o) => a + parseFloat(o.pnl), 0);
   document.getElementById('h-total').textContent = orders.length;
   document.getElementById('h-wr').textContent = closed.length ? Math.round(wins.length / closed.length * 100) + '%' : '—';
   document.getElementById('h-profit').textContent = '+¢' + profit.toFixed(0) + ' ($' + (profit/100).toFixed(2) + ')';
-  document.getElementById('h-loss').textContent = '¢' + loss.toFixed(0) + ' ($' + (Math.abs(loss)/100).toFixed(2) + ')';
+  document.getElementById('h-loss').textContent = '¢' + Math.abs(loss).toFixed(0) + ' ($' + (Math.abs(loss)/100).toFixed(2) + ')';
   let filtered = orders;
   if (currentFilter === 'win') filtered = orders.filter(o => o.pnl != null && o.pnl > 0);
   else if (currentFilter === 'loss') filtered = orders.filter(o => o.pnl != null && o.pnl < 0);
@@ -540,7 +585,8 @@ function renderHistory() {
   list.innerHTML = filtered.map(o => {
     const pnlHtml = o.pnl != null ? '<div class="order-pnl ' + (o.pnl >= 0 ? 'green' : 'red') + '">' + (o.pnl >= 0 ? '+¢' : '-¢') + Math.abs(parseFloat(o.pnl)).toFixed(0) + '<span style="font-size:11px;opacity:0.7"> ($' + Math.abs(parseFloat(o.pnl)/100).toFixed(2) + ')</span></div>' : '<span class="badge" style="background:#E1F5EE;color:#0F6E56">รอปิด</span>';
     const rb = o.rules === 'yes' ? 'badge-ok">ครบ' : o.rules === 'partial' ? 'badge-warn2">บางข้อ' : 'badge-bad">ไม่ครบ';
-    return `<div class="order-card"><div class="order-header"><div><div class="order-symbol">${o.symbol}</div><div class="order-date">${o.date}</div></div><div style="display:flex;align-items:center;gap:8px">${pnlHtml}<button class="delete-btn" onclick="deleteOrder(${o.id})">✕</button></div></div><div class="order-meta"><span class="badge badge-${o.dir}">${o.dir.toUpperCase()} ${o.lot}</span><span class="badge ${rb}</span>${o.emotion ? '<span class="badge" style="background:#F1EFE8;color:#5F5E5A">' + (emotionMap[o.emotion] || o.emotion) + '</span>' : ''}</div><div class="order-prices"><span>Entry<b>${o.entry}</b></span><span>TP<b style="color:#1D9E75">${o.tp}</b></span><span>SL<b style="color:#E24B4A">${o.sl}</b></span></div>${o.reason ? '<div class="order-reason">เหตุผล: ' + o.reason + '</div>' : ''}</div>`;
+    const fid = o.firestoreId;
+    return `<div class="order-card"><div class="order-header"><div><div class="order-symbol">${o.symbol}</div><div class="order-date">${o.date}</div></div><div style="display:flex;align-items:center;gap:8px">${pnlHtml}<button class="delete-btn" onclick="deleteOrder('${fid}')">✕</button></div></div><div class="order-meta"><span class="badge badge-${o.dir}">${o.dir.toUpperCase()} ${o.lot}</span><span class="badge ${rb}</span>${o.emotion ? '<span class="badge" style="background:#F1EFE8;color:#5F5E5A">' + (emotionMap[o.emotion] || o.emotion) + '</span>' : ''}</div><div class="order-prices"><span>Entry<b>${o.entry}</b></span><span>TP<b style="color:#1D9E75">${o.tp}</b></span><span>SL<b style="color:#E24B4A">${o.sl}</b></span></div>${o.reason ? '<div class="order-reason">เหตุผล: ' + o.reason + '</div>' : ''}</div>`;
   }).join('');
 }
 
@@ -551,8 +597,8 @@ function renderStats() {
   const net = closed.reduce((a, o) => a + parseFloat(o.pnl), 0);
   const days = [...new Set(orders.map(o => o.date))].length;
   const comply = orders.length ? Math.round(orders.filter(o => o.rules === 'yes').length / orders.length * 100) : 0;
-  const avgWin = wins.length ? wins.reduce((a, o) => a + o.pnl, 0) / wins.length : 0;
-  const avgLoss = losses.length ? Math.abs(losses.reduce((a, o) => a + o.pnl, 0) / losses.length) : 0;
+  const avgWin = wins.length ? wins.reduce((a, o) => a + parseFloat(o.pnl), 0) / wins.length : 0;
+  const avgLoss = losses.length ? Math.abs(losses.reduce((a, o) => a + parseFloat(o.pnl), 0) / losses.length) : 0;
   document.getElementById('s-days').textContent = days;
   const sc = document.getElementById('s-comply'); sc.textContent = comply + '%'; sc.className = 'metric-value ' + (comply >= 80 ? 'green' : comply >= 50 ? 'amber' : 'red');
   const sn = document.getElementById('s-net'); sn.textContent = (net >= 0 ? '+¢' : '-¢') + Math.abs(net).toFixed(0) + ' ($' + Math.abs(net/100).toFixed(2) + ')'; sn.className = 'metric-value ' + (net >= 0 ? 'green' : 'red');
@@ -593,19 +639,18 @@ function renderEmotionStats() {
   }).join('');
 }
 
-function exportData() {
+window.exportData = function() {
   const blob = new Blob([JSON.stringify(orders, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'cent_journal_' + new Date().toISOString().split('T')[0] + '.json'; a.click();
 }
 
-function clearAll() {
-  if (!confirm('ล้างข้อมูล Cent Account ทั้งหมด?')) return;
-  orders = []; save(); alert('ล้างแล้วครับ');
+window.clearAll = function() {
+  alert('ข้อมูลเก็บใน Firebase ไม่สามารถลบทีเดียวได้ครับ กรุณาลบทีละรายการในหน้าประวัติ');
 }
 
+// Init
 document.getElementById('f-date').valueAsDate = new Date();
-// Load saved capital settings
 const savedCap = localStorage.getItem('tj_cent_capital');
 const savedPct = localStorage.getItem('tj_cent_riskpct');
 if(savedCap) document.getElementById('f-capital').value = savedCap;
@@ -614,7 +659,7 @@ updateCapitalDisplay();
 document.getElementById('f-emotion').addEventListener('change', function () {
   document.getElementById('emotion-warn').style.display = ['fomo', 'revenge', 'fear', 'greedy'].includes(this.value) ? 'block' : 'none';
 });
-updateHeader();
+
 </script>
 </body>
 </html>
