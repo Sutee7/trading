@@ -172,7 +172,7 @@ body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-heigh
       <div class="checklist" id="main-checklist">
         <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">รู้ว่าจะเปิดที่ราคาเท่าไหร่</span></div>
         <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ตั้ง Take Profit ในระบบแล้ว</span></div>
-        <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ตั้ง Stop Loss ในระบบแล้ว (ไม่เกิน $15)</span></div>
+        <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ตั้ง Stop Loss ในระบบแล้ว (<span id="checklist-sl-limit">ไม่เกิน $15</span>)</span></div>
         <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ถ้าโดน SL วันนี้ — ยังโอเคอยู่</span></div>
         <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ไม่ได้เปิดเพราะกลัวพลาด หรืออยากแก้แค้น</span></div>
         <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ไม่มี Order ติดลบอยู่ตอนนี้</span></div>
@@ -520,6 +520,7 @@ function updateCapitalDisplay(){
     document.getElementById('limit-daily').textContent = 'ไม่เกิน ¢' + maxDaily.toFixed(0) + ' ($' + (maxDaily/100).toFixed(2) + ')';
     document.getElementById('rules-limit-sl').textContent = 'ไม่เกิน ¢' + maxRisk.toFixed(0) + ' ($' + (maxRisk/100).toFixed(2) + ')';
     document.getElementById('rules-limit-daily').textContent = 'ไม่เกิน ¢' + maxDaily.toFixed(0) + ' ($' + (maxDaily/100).toFixed(2) + ') แล้วหยุด';
+    document.getElementById('checklist-sl-limit').textContent = 'ไม่เกิน ¢' + maxRisk.toFixed(0) + ' ($' + (maxRisk/100).toFixed(2) + ')';
   } else {
     capUsdEl.textContent = '';
     resultEl.style.display = 'none';
@@ -527,6 +528,7 @@ function updateCapitalDisplay(){
     document.getElementById('limit-daily').textContent = 'ไม่เกิน ¢3,000 ($30)';
     document.getElementById('rules-limit-sl').textContent = 'ไม่เกิน ¢1,500 ($15)';
     document.getElementById('rules-limit-daily').textContent = 'ไม่เกิน ¢3,000 ($30) แล้วหยุด';
+    document.getElementById('checklist-sl-limit').textContent = 'ไม่เกิน $15';
   }
 }
 
