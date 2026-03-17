@@ -187,10 +187,46 @@ body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-heigh
 
 <!-- ORDER FORM -->
 <div id="page-order" class="page">
+  <div class="card" style="border-left:3px solid #1D9E75">
+    <p class="section-title">ตั้งค่าเงินทุนและ Risk</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>เงินทุนปัจจุบัน (¢)</label>
+        <input type="number" id="f-capital" placeholder="เช่น 50000" oninput="saveCapital();calcRisk()" style="border-color:#1D9E75">
+        <div style="font-size:11px;color:#888;margin-top:3px" id="capital-usd"></div>
+      </div>
+      <div class="form-group">
+        <label>Risk ต่อ Order (%)</label>
+        <select id="f-risk-pct" onchange="saveCapital();calcRisk()">
+          <option value="0.5">0.5%</option>
+          <option value="1" selected>1%</option>
+          <option value="1.5">1.5%</option>
+          <option value="2">2%</option>
+          <option value="3">3%</option>
+          <option value="5">5%</option>
+        </select>
+      </div>
+    </div>
+    <div id="capital-result" style="display:none;background:#F0FBF6;border-radius:8px;padding:10px;font-size:13px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span>Risk สูงสุดต่อ Order</span>
+        <b id="max-risk-cent" class="green">¢0</b>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span>เทียบเป็น USD</span>
+        <b id="max-risk-usd" class="green">$0</b>
+      </div>
+      <div style="display:flex;justify-content:space-between;border-top:1px solid #c8f0e0;padding-top:6px;margin-top:2px">
+        <span>ขาดทุนได้สูงสุดต่อวัน (3%)</span>
+        <b id="max-daily" style="color:#BA7517">¢0</b>
+      </div>
+    </div>
+  </div>
+
   <div class="limit-box">
     <div class="limit-title">ขีดจำกัด Cent Account</div>
-    <div class="limit-row"><span>SL ต่อ Order</span><b>ไม่เกิน ¢1,500 ($15)</b></div>
-    <div class="limit-row"><span>ขาดทุนต่อวัน</span><b>ไม่เกิน ¢3,000 ($30)</b></div>
+    <div class="limit-row"><span>SL ต่อ Order</span><b id="limit-sl">ไม่เกิน ¢1,500 ($15)</b></div>
+    <div class="limit-row"><span>ขาดทุนต่อวัน</span><b id="limit-daily">ไม่เกิน ¢3,000 ($30)</b></div>
     <div class="limit-row"><span>Order พร้อมกัน</span><b>ไม่เกิน 2</b></div>
   </div>
   <div class="card">
@@ -215,6 +251,7 @@ body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-heigh
     </div>
     <div class="sl-info" id="risk-info" style="display:none">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>ความเสี่ยง SL (Cent)</span><b id="risk-val">-</b></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px" id="risk-pct-row" style="display:none"><span>คิดเป็น % ของทุน</span><b id="risk-pct-val">-</b></div>
       <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>เป้ากำไร TP (Cent)</span><b id="tp-val" class="green">-</b></div>
       <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:1px solid #c8f0e0"><span>Risk : Reward</span><b id="rr-val">-</b></div>
     </div>
@@ -373,6 +410,41 @@ function updateTimer() {
   document.getElementById('timer-display').textContent = m + ':' + String(s).padStart(2, '0');
 }
 
+function getCapital(){ return parseFloat(document.getElementById('f-capital').value) || 0; }
+function getRiskPct(){ return parseFloat(document.getElementById('f-risk-pct').value) || 1; }
+
+function saveCapital(){
+  const cap = document.getElementById('f-capital').value;
+  const pct = document.getElementById('f-risk-pct').value;
+  localStorage.setItem('tj_cent_capital', cap);
+  localStorage.setItem('tj_cent_riskpct', pct);
+  updateCapitalDisplay();
+}
+
+function updateCapitalDisplay(){
+  const cap = getCapital();
+  const pct = getRiskPct();
+  const capUsdEl = document.getElementById('capital-usd');
+  const resultEl = document.getElementById('capital-result');
+  if(cap > 0){
+    capUsdEl.textContent = '= $' + (cap/100).toFixed(2);
+    const maxRisk = cap * pct / 100;
+    const maxDaily = cap * 3 / 100;
+    document.getElementById('max-risk-cent').textContent = '¢' + maxRisk.toFixed(0);
+    document.getElementById('max-risk-usd').textContent = '$' + (maxRisk/100).toFixed(2);
+    document.getElementById('max-daily').textContent = '¢' + maxDaily.toFixed(0) + ' ($' + (maxDaily/100).toFixed(2) + ')';
+    resultEl.style.display = 'block';
+    // Update limit box dynamically
+    document.getElementById('limit-sl').textContent = 'ไม่เกิน ¢' + maxRisk.toFixed(0) + ' ($' + (maxRisk/100).toFixed(2) + ')';
+    document.getElementById('limit-daily').textContent = 'ไม่เกิน ¢' + maxDaily.toFixed(0) + ' ($' + (maxDaily/100).toFixed(2) + ')';
+  } else {
+    capUsdEl.textContent = '';
+    resultEl.style.display = 'none';
+    document.getElementById('limit-sl').textContent = 'ไม่เกิน ¢1,500 ($15)';
+    document.getElementById('limit-daily').textContent = 'ไม่เกิน ¢3,000 ($30)';
+  }
+}
+
 function calcRisk() {
   const entry = parseFloat(document.getElementById('f-entry').value);
   const sl = parseFloat(document.getElementById('f-sl').value);
@@ -382,13 +454,35 @@ function calcRisk() {
   const slCent = calcCent(entry - sl, lot);
   const tpCent = tp ? calcCent(tp - entry, lot) : null;
   const rr = tpCent ? (tpCent / slCent).toFixed(1) : null;
+  const cap = getCapital();
+  const pct = getRiskPct();
+  const maxRisk = cap > 0 ? cap * pct / 100 : SL_LIMIT_CENT;
   document.getElementById('risk-info').style.display = 'block';
   const rv = document.getElementById('risk-val');
   rv.textContent = '¢' + slCent.toFixed(0) + ' ($' + (slCent/100).toFixed(2) + ')';
-  rv.className = slCent > SL_LIMIT_CENT ? 'red' : 'green';
+  rv.className = slCent > maxRisk ? 'red' : 'green';
+  // Show % of capital
+  const pctRow = document.getElementById('risk-pct-row');
+  const pctVal = document.getElementById('risk-pct-val');
+  if(cap > 0){
+    pctRow.style.display = 'flex';
+    const actualPct = (slCent / cap * 100).toFixed(2);
+    pctVal.textContent = actualPct + '%';
+    pctVal.className = slCent > maxRisk ? 'red' : 'green';
+  } else {
+    pctRow.style.display = 'none';
+  }
   document.getElementById('tp-val').textContent = tpCent ? '+¢' + tpCent.toFixed(0) + ' ($' + (tpCent/100).toFixed(2) + ')' : '-';
   document.getElementById('rr-val').textContent = rr ? '1:' + rr : '-';
-  document.getElementById('risk-warn').style.display = slCent > SL_LIMIT_CENT ? 'block' : 'none';
+  const warnEl = document.getElementById('risk-warn');
+  if(slCent > maxRisk){
+    warnEl.style.display = 'block';
+    warnEl.textContent = cap > 0
+      ? 'SL เกิน ' + pct + '% ของทุน (¢' + maxRisk.toFixed(0) + ') — ปรับ Lot หรือ SL ก่อนครับ'
+      : 'SL เกิน ¢1,500 ($15) — ปรับ Lot หรือ SL ก่อนครับ';
+  } else {
+    warnEl.style.display = 'none';
+  }
 }
 
 function saveOrder() {
@@ -511,6 +605,12 @@ function clearAll() {
 }
 
 document.getElementById('f-date').valueAsDate = new Date();
+// Load saved capital settings
+const savedCap = localStorage.getItem('tj_cent_capital');
+const savedPct = localStorage.getItem('tj_cent_riskpct');
+if(savedCap) document.getElementById('f-capital').value = savedCap;
+if(savedPct) document.getElementById('f-risk-pct').value = savedPct;
+updateCapitalDisplay();
 document.getElementById('f-emotion').addEventListener('change', function () {
   document.getElementById('emotion-warn').style.display = ['fomo', 'revenge', 'fear', 'greedy'].includes(this.value) ? 'block' : 'none';
 });
