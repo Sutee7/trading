@@ -207,6 +207,16 @@ body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-heigh
         </select>
       </div>
     </div>
+    <div class="form-group" style="margin-top:8px">
+      <label>Order พร้อมกันสูงสุด</label>
+      <select id="f-max-orders" onchange="saveCapital()">
+        <option value="1">1 Order</option>
+        <option value="2" selected>2 Order</option>
+        <option value="3">3 Order</option>
+        <option value="4">4 Order</option>
+        <option value="5">5 Order</option>
+      </select>
+    </div>
     <div id="capital-result" style="display:none;background:#F0FBF6;border-radius:8px;padding:10px;font-size:13px;">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px">
         <span>Risk สูงสุดต่อ Order</span>
@@ -216,9 +226,13 @@ body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-heigh
         <span>เทียบเป็น USD</span>
         <b id="max-risk-usd" class="green">$0</b>
       </div>
-      <div style="display:flex;justify-content:space-between;border-top:1px solid #c8f0e0;padding-top:6px;margin-top:2px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
         <span>ขาดทุนได้สูงสุดต่อวัน (3%)</span>
         <b id="max-daily" style="color:#BA7517">¢0</b>
+      </div>
+      <div style="display:flex;justify-content:space-between;border-top:1px solid #c8f0e0;padding-top:6px;margin-top:2px">
+        <span>Order พร้อมกันสูงสุด</span>
+        <b id="max-orders-display" style="color:#185FA5">2 Order</b>
       </div>
     </div>
   </div>
@@ -227,7 +241,7 @@ body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-heigh
     <div class="limit-title">ขีดจำกัด Cent Account</div>
     <div class="limit-row"><span>SL ต่อ Order</span><b id="limit-sl">ไม่เกิน ¢1,500 ($15)</b></div>
     <div class="limit-row"><span>ขาดทุนต่อวัน</span><b id="limit-daily">ไม่เกิน ¢3,000 ($30)</b></div>
-    <div class="limit-row"><span>Order พร้อมกัน</span><b>ไม่เกิน 2</b></div>
+    <div class="limit-row"><span>Order พร้อมกัน</span><b id="limit-orders">ไม่เกิน 2</b></div>
   </div>
   <div class="card">
     <p class="section-title">บันทึก Order</p>
@@ -326,7 +340,7 @@ body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-heigh
     <div class="limit-title">ขีดจำกัด Cent Account</div>
     <div class="limit-row"><span>SL ต่อ Order</span><b id="rules-limit-sl">ไม่เกิน ¢1,500 ($15)</b></div>
     <div class="limit-row"><span>ขาดทุนต่อวัน</span><b id="rules-limit-daily">ไม่เกิน ¢3,000 ($30) แล้วหยุด</b></div>
-    <div class="limit-row"><span>Order พร้อมกัน</span><b>ไม่เกิน 2</b></div>
+    <div class="limit-row"><span>Order พร้อมกัน</span><b id="rules-limit-orders">ไม่เกิน 2</b></div>
   </div>
   <div class="card">
     <p class="section-title">กฎห้ามทำ</p>
@@ -415,6 +429,12 @@ async function saveOrder() {
   const emotion = document.getElementById('f-emotion').value;
   const rules = document.getElementById('f-rules').value;
   if (!date || !symbol || !lot || !entry || !tp || !sl) { alert('กรุณากรอกข้อมูลให้ครบครับ'); return; }
+  const maxOrdNow = parseInt(localStorage.getItem('tj_cent_maxorders') || '2');
+  const openNow = orders.filter(o => o.pnl == null).length;
+  if(openNow >= maxOrdNow) {
+    const ok = confirm('⚠️ ตอนนี้มี Order เปิดอยู่ ' + openNow + ' รายการ\nเกินกฎที่ตั้งไว้ (' + maxOrdNow + ' Order)\n\nยังต้องการบันทึกต่อไหมครับ?');
+    if(!ok) return;
+  }
   setSyncStatus('syncing');
   try {
     await addDoc(centCol, { date, symbol, dir, lot, entry, tp, sl, pnl, reason, emotion, rules, createdAt: Date.now() });
@@ -497,8 +517,10 @@ function getRiskPct(){ return parseFloat(document.getElementById('f-risk-pct').v
 window.saveCapital = function(){
   const cap = document.getElementById('f-capital').value;
   const pct = document.getElementById('f-risk-pct').value;
+  const maxOrd = document.getElementById('f-max-orders').value;
   localStorage.setItem('tj_cent_capital', cap);
   localStorage.setItem('tj_cent_riskpct', pct);
+  localStorage.setItem('tj_cent_maxorders', maxOrd);
   updateCapitalDisplay();
 }
 
@@ -520,6 +542,11 @@ function updateCapitalDisplay(){
     document.getElementById('rules-limit-sl').textContent = 'ไม่เกิน ¢' + maxRisk.toFixed(0) + ' ($' + (maxRisk/100).toFixed(2) + ')';
     document.getElementById('rules-limit-daily').textContent = 'ไม่เกิน ¢' + maxDaily.toFixed(0) + ' ($' + (maxDaily/100).toFixed(2) + ') แล้วหยุด';
     document.getElementById('checklist-sl-limit').textContent = 'ไม่เกิน ¢' + maxRisk.toFixed(0) + ' ($' + (maxRisk/100).toFixed(2) + ')';
+    const maxOrd = parseInt(document.getElementById('f-max-orders').value) || 2;
+    const ordText = 'ไม่เกิน ' + maxOrd + ' Order';
+    document.getElementById('limit-orders').textContent = ordText;
+    document.getElementById('rules-limit-orders').textContent = ordText;
+    document.getElementById('max-orders-display').textContent = maxOrd + ' Order';
   } else {
     capUsdEl.textContent = '';
     resultEl.style.display = 'none';
@@ -528,6 +555,11 @@ function updateCapitalDisplay(){
     document.getElementById('rules-limit-sl').textContent = 'ไม่เกิน ¢1,500 ($15)';
     document.getElementById('rules-limit-daily').textContent = 'ไม่เกิน ¢3,000 ($30) แล้วหยุด';
     document.getElementById('checklist-sl-limit').textContent = 'ไม่เกิน $15';
+    const maxOrdDef = parseInt(document.getElementById('f-max-orders').value) || 2;
+    const ordTextDef = 'ไม่เกิน ' + maxOrdDef + ' Order';
+    document.getElementById('limit-orders').textContent = ordTextDef;
+    document.getElementById('rules-limit-orders').textContent = ordTextDef;
+    if(document.getElementById('max-orders-display')) document.getElementById('max-orders-display').textContent = maxOrdDef + ' Order';
   }
 }
 
@@ -660,8 +692,10 @@ window.clearAll = function() {
 document.getElementById('f-date').valueAsDate = new Date();
 const savedCap = localStorage.getItem('tj_cent_capital');
 const savedPct = localStorage.getItem('tj_cent_riskpct');
+const savedMaxOrd = localStorage.getItem('tj_cent_maxorders');
 if(savedCap) document.getElementById('f-capital').value = savedCap;
 if(savedPct) document.getElementById('f-risk-pct').value = savedPct;
+if(savedMaxOrd) document.getElementById('f-max-orders').value = savedMaxOrd;
 updateCapitalDisplay();
 document.getElementById('f-emotion').addEventListener('change', function () {
   document.getElementById('emotion-warn').style.display = ['fomo', 'revenge', 'fear', 'greedy'].includes(this.value) ? 'block' : 'none';
