@@ -247,7 +247,7 @@ body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-heigh
     </div>
     <div class="form-row">
       <div class="form-group"><label>Stop Loss</label><input type="number" id="f-sl" placeholder="4950.00" step="0.01" oninput="calcRisk()"></div>
-      <div class="form-group"><label>P&L จริง (Cent ¢)</label><input type="number" id="f-pnl" placeholder="เช่น 150 = ¢150 = $1.50"></div>
+
     </div>
     <div class="sl-info" id="risk-info" style="display:none">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>ความเสี่ยง SL (Cent)</span><b id="risk-val">-</b></div>
@@ -410,8 +410,7 @@ async function saveOrder() {
   const entry = parseFloat(document.getElementById('f-entry').value);
   const tp = parseFloat(document.getElementById('f-tp').value);
   const sl = parseFloat(document.getElementById('f-sl').value);
-  const pnlRaw = document.getElementById('f-pnl').value;
-  const pnl = pnlRaw !== '' ? parseFloat(pnlRaw) : null;
+  const pnl = null;
   const reason = document.getElementById('f-reason').value;
   const emotion = document.getElementById('f-emotion').value;
   const rules = document.getElementById('f-rules').value;
@@ -419,7 +418,7 @@ async function saveOrder() {
   setSyncStatus('syncing');
   try {
     await addDoc(centCol, { date, symbol, dir, lot, entry, tp, sl, pnl, reason, emotion, rules, createdAt: Date.now() });
-    ['f-lot','f-entry','f-tp','f-sl','f-pnl','f-reason'].forEach(id => document.getElementById(id).value = '');
+    ['f-lot','f-entry','f-tp','f-sl','f-reason'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('risk-info').style.display = 'none';
     document.getElementById('risk-warn').style.display = 'none';
     document.getElementById('emotion-warn').style.display = 'none';
@@ -589,7 +588,9 @@ function renderHistory() {
   const list = document.getElementById('history-list');
   if (!filtered.length) { list.innerHTML = '<div class="empty-state">📋<br>ยังไม่มี Order ในหมวดนี้</div>'; return; }
   list.innerHTML = filtered.map(o => {
-    const pnlHtml = o.pnl != null ? '<div class="order-pnl ' + (o.pnl >= 0 ? 'green' : 'red') + '">' + (o.pnl >= 0 ? '+¢' : '-¢') + Math.abs(parseFloat(o.pnl)).toFixed(0) + '<span style="font-size:11px;opacity:0.7"> ($' + Math.abs(parseFloat(o.pnl)/100).toFixed(2) + ')</span></div>' : '<span class="badge" style="background:#E1F5EE;color:#0F6E56">รอปิด</span>';
+    const pnlHtml = o.pnl != null
+      ? '<div class="order-pnl ' + (o.pnl >= 0 ? 'green' : 'red') + '">' + (o.pnl >= 0 ? '+¢' : '-¢') + Math.abs(parseFloat(o.pnl)).toFixed(0) + '<span style="font-size:11px;opacity:0.7"> ($' + Math.abs(parseFloat(o.pnl)/100).toFixed(2) + ')</span></div>'
+      : '<button onclick="openCloseModal(\'' + o.firestoreId + '\')" style="padding:6px 14px;border-radius:8px;border:1px solid #1D9E75;background:#E1F5EE;color:#0F6E56;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">ปิด Order</button>';
     const rb = o.rules === 'yes' ? 'badge-ok">ครบ' : o.rules === 'partial' ? 'badge-warn2">บางข้อ' : 'badge-bad">ไม่ครบ';
     const fid = o.firestoreId;
     return `<div class="order-card"><div class="order-header"><div><div class="order-symbol">${o.symbol}</div><div class="order-date">${o.date}</div></div><div style="display:flex;align-items:center;gap:8px">${pnlHtml}<button class="delete-btn" onclick="deleteOrder('${fid}')">✕</button></div></div><div class="order-meta"><span class="badge badge-${o.dir}">${o.dir.toUpperCase()} ${o.lot}</span><span class="badge ${rb}</span>${o.emotion ? '<span class="badge" style="background:#F1EFE8;color:#5F5E5A">' + (emotionMap[o.emotion] || o.emotion) + '</span>' : ''}</div><div class="order-prices"><span>Entry<b>${o.entry}</b></span><span>TP<b style="color:#1D9E75">${o.tp}</b></span><span>SL<b style="color:#E24B4A">${o.sl}</b></span></div>${o.reason ? '<div class="order-reason">เหตุผล: ' + o.reason + '</div>' : ''}</div>`;
@@ -666,6 +667,94 @@ document.getElementById('f-emotion').addEventListener('change', function () {
   document.getElementById('emotion-warn').style.display = ['fomo', 'revenge', 'fear', 'greedy'].includes(this.value) ? 'block' : 'none';
 });
 
+// ── Close Order Functions ───────────────────────────────────
+let closingOrderId = null;
+let closingOrder = null;
+
+window.openCloseModal = function(firestoreId) {
+  const order = orders.find(o => o.firestoreId === firestoreId);
+  if(!order) return;
+  closingOrderId = firestoreId;
+  closingOrder = order;
+  document.getElementById('close-exit-price').value = '';
+  document.getElementById('close-preview').style.display = 'none';
+  document.getElementById('close-modal-info').innerHTML =
+    '<b>' + order.symbol + '</b> ' + order.dir.toUpperCase() + ' ' + order.lot + ' lot<br>' +
+    'Entry: <b>' + order.entry + '</b> &nbsp;|&nbsp; ' +
+    'TP: <b style="color:#1D9E75">' + order.tp + '</b> &nbsp;|&nbsp; ' +
+    'SL: <b style="color:#E24B4A">' + order.sl + '</b>';
+  const modal = document.getElementById('close-modal');
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('close-exit-price').focus(), 100);
+}
+
+window.closeModal = function() {
+  document.getElementById('close-modal').style.display = 'none';
+  closingOrderId = null; closingOrder = null;
+}
+
+window.updateClosePreview = function() {
+  if(!closingOrder) return;
+  const exitPrice = parseFloat(document.getElementById('close-exit-price').value);
+  if(!exitPrice) { document.getElementById('close-preview').style.display = 'none'; return; }
+  const pnlCent = (closingOrder.dir === 'buy' ? exitPrice - closingOrder.entry : closingOrder.entry - exitPrice) * closingOrder.lot * 100;
+  const preview = document.getElementById('close-preview');
+  const pnlEl = document.getElementById('close-pnl-preview');
+  const usdEl = document.getElementById('close-usd-preview');
+  preview.style.display = 'block';
+  pnlEl.textContent = (pnlCent >= 0 ? '+\u00a2' : '-\u00a2') + Math.abs(pnlCent).toFixed(0);
+  pnlEl.style.color = pnlCent >= 0 ? '#1D9E75' : '#E24B4A';
+  usdEl.textContent = (pnlCent >= 0 ? '+' : '-') + '$' + Math.abs(pnlCent/100).toFixed(2);
+  usdEl.style.color = pnlCent >= 0 ? '#1D9E75' : '#E24B4A';
+  preview.style.background = pnlCent >= 0 ? '#F0FBF6' : '#FEF2F0';
+}
+
+window.confirmCloseOrder = async function() {
+  const exitPrice = parseFloat(document.getElementById('close-exit-price').value);
+  if(!exitPrice || !closingOrderId || !closingOrder) { alert('กรุณากรอกราคาปิดครับ'); return; }
+  const pnlCent = (closingOrder.dir === 'buy' ? exitPrice - closingOrder.entry : closingOrder.entry - exitPrice) * closingOrder.lot * 100;
+  setSyncStatus('syncing');
+  try {
+    await updateDoc(doc(db, 'cent_trades', closingOrderId), {
+      pnl: Math.round(pnlCent * 100) / 100,
+      exitPrice: exitPrice,
+      closedAt: Date.now()
+    });
+    closeModal();
+    alert((pnlCent >= 0 ? '\u2705 \u0e01\u0e33\u0e44\u0e23 +\u00a2' : '\u274c \u0e02\u0e32\u0e14\u0e17\u0e38\u0e19 -\u00a2') + Math.abs(pnlCent).toFixed(0) + ' ($' + Math.abs(pnlCent/100).toFixed(2) + ')');
+  } catch(e) { alert('\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08: ' + e.message); setSyncStatus('err'); }
+}
+
+document.getElementById('close-modal').addEventListener('click', function(e) {
+  if(e.target === this) closeModal();
+});
+
 </script>
+
+<!-- Modal ปิด Order -->
+<div id="close-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:#fff;border-radius:16px;padding:20px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto">
+    <div style="font-size:16px;font-weight:600;margin-bottom:4px">ปิด Order</div>
+    <div id="close-modal-info" style="font-size:13px;color:#666;margin-bottom:14px;padding:10px;background:#F0FBF6;border-radius:8px;line-height:1.7"></div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:12px;color:#666;display:block;margin-bottom:3px;font-weight:500">ราคาปิด</label>
+      <input type="number" id="close-exit-price" placeholder="กรอกราคาที่ปิด" step="0.01"
+        style="width:100%;padding:9px 11px;border:1px solid #1D9E75;border-radius:10px;font-size:16px;outline:none"
+        oninput="updateClosePreview()">
+    </div>
+    <div id="close-preview" style="display:none;background:#F0FBF6;border-radius:10px;padding:12px;margin-bottom:14px;font-size:13px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span>P&L คาดการณ์</span><b id="close-pnl-preview" style="font-size:16px">¢0</b>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span>เทียบ USD</span><b id="close-usd-preview">$0.00</b>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="closeModal()" style="flex:1;padding:12px;border-radius:10px;border:1px solid #e0ded8;background:#fff;font-size:14px;cursor:pointer;font-family:inherit">ยกเลิก</button>
+      <button onclick="confirmCloseOrder()" style="flex:1;padding:12px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:14px;cursor:pointer;font-weight:500;font-family:inherit">ยืนยันปิด Order ✓</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
