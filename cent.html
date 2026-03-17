@@ -324,8 +324,8 @@ body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-heigh
   </div>
   <div class="limit-box">
     <div class="limit-title">ขีดจำกัด Cent Account</div>
-    <div class="limit-row"><span>SL ต่อ Order</span><b>ไม่เกิน ¢1,500 ($15)</b></div>
-    <div class="limit-row"><span>ขาดทุนต่อวัน</span><b>ไม่เกิน ¢3,000 ($30) แล้วหยุด</b></div>
+    <div class="limit-row"><span>SL ต่อ Order</span><b id="rules-limit-sl">ไม่เกิน ¢1,500 ($15)</b></div>
+    <div class="limit-row"><span>ขาดทุนต่อวัน</span><b id="rules-limit-daily">ไม่เกิน ¢3,000 ($30) แล้วหยุด</b></div>
     <div class="limit-row"><span>Order พร้อมกัน</span><b>ไม่เกิน 2</b></div>
   </div>
   <div class="card">
@@ -518,11 +518,15 @@ function updateCapitalDisplay(){
     resultEl.style.display = 'block';
     document.getElementById('limit-sl').textContent = 'ไม่เกิน ¢' + maxRisk.toFixed(0) + ' ($' + (maxRisk/100).toFixed(2) + ')';
     document.getElementById('limit-daily').textContent = 'ไม่เกิน ¢' + maxDaily.toFixed(0) + ' ($' + (maxDaily/100).toFixed(2) + ')';
+    document.getElementById('rules-limit-sl').textContent = 'ไม่เกิน ¢' + maxRisk.toFixed(0) + ' ($' + (maxRisk/100).toFixed(2) + ')';
+    document.getElementById('rules-limit-daily').textContent = 'ไม่เกิน ¢' + maxDaily.toFixed(0) + ' ($' + (maxDaily/100).toFixed(2) + ') แล้วหยุด';
   } else {
     capUsdEl.textContent = '';
     resultEl.style.display = 'none';
     document.getElementById('limit-sl').textContent = 'ไม่เกิน ¢1,500 ($15)';
     document.getElementById('limit-daily').textContent = 'ไม่เกิน ¢3,000 ($30)';
+    document.getElementById('rules-limit-sl').textContent = 'ไม่เกิน ¢1,500 ($15)';
+    document.getElementById('rules-limit-daily').textContent = 'ไม่เกิน ¢3,000 ($30) แล้วหยุด';
   }
 }
 
