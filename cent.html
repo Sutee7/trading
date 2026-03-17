@@ -175,7 +175,7 @@ body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-heigh
         <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ตั้ง Stop Loss ในระบบแล้ว (<span id="checklist-sl-limit">ไม่เกิน $15</span>)</span></div>
         <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ถ้าโดน SL วันนี้ — ยังโอเคอยู่</span></div>
         <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ไม่ได้เปิดเพราะกลัวพลาด หรืออยากแก้แค้น</span></div>
-        <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ไม่มี Order ติดลบอยู่ตอนนี้</span></div>
+        <div class="check-item" id="checklist-no-loss" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">ไม่มี Order ติดลบอยู่ตอนนี้ <span id="retest-exception" style="display:none;color:#8B5CF6;font-size:11px">(หรือเปิด Retest ตามแผน)</span></span></div>
         <div class="check-item" onclick="toggle(this)"><div class="check-box"><span class="check-mark">✓</span></div><span class="check-text">อารมณ์ปกติ ไม่เครียด ไม่โลภ</span></div>
       </div>
     </div>
@@ -274,16 +274,51 @@ body{font-family:'Sarabun',sans-serif;background:#F8F7F4;color:#1a1a1a;min-heigh
     <div class="form-group">
       <label>อารมณ์</label>
       <select id="f-emotion">
-        <option value="calm">สงบ มีสติ</option><option value="confident">มั่นใจ</option>
-        <option value="fomo">กลัวพลาด (FOMO)</option><option value="revenge">อยากแก้แค้น</option>
-        <option value="fear">กลัว</option><option value="greedy">โลภ</option>
+        <option value="calm">สงบ มีสติ</option>
+        <option value="confident">มั่นใจ</option>
+        <option value="retest">Retest ตามแผน</option>
+        <option value="fomo">กลัวพลาด (FOMO)</option>
+        <option value="revenge">อยากแก้แค้น</option>
+        <option value="fear">กลัว</option>
+        <option value="greedy">โลภ</option>
       </select>
     </div>
     <div class="form-group">
       <label>ทำตามกฎครบไหม?</label>
       <select id="f-rules"><option value="yes">ครบ</option><option value="partial">บางข้อ</option><option value="no">ไม่ครบ</option></select>
     </div>
+
+    <div id="retest-plan-box" style="display:none;background:#F5F3FF;border-radius:10px;padding:12px;margin-top:6px;border:1px solid #DDD6FE">
+      <div style="font-size:12px;font-weight:600;color:#5B21B6;margin-bottom:8px">แผน Retest</div>
+      <div class="form-group" style="margin-bottom:8px">
+        <label style="color:#5B21B6">Entry Retest ที่คาดไว้</label>
+        <input type="number" id="f-retest-entry" placeholder="ราคาที่วางแผนจะ Retest" step="0.01">
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0">
+          <label style="color:#5B21B6">SL รวมทั้งหมด (¢)</label>
+          <input type="number" id="f-retest-total-sl" placeholder="SL Order 1 + Order 2" oninput="calcRetestRisk()">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label style="color:#5B21B6">% ทุนที่ยอมเสีย</label>
+          <div id="retest-risk-pct" style="padding:9px 11px;border:1px solid #DDD6FE;border-radius:10px;font-size:14px;background:#EDE9FE;color:#5B21B6;font-weight:500">—</div>
+        </div>
+      </div>
+      <div id="retest-risk-warn" class="alert alert-danger" style="display:none;margin-top:8px;font-size:12px"></div>
+    </div>
     <div id="emotion-warn" class="alert alert-warn" style="display:none;margin-top:8px">อารมณ์ไม่เหมาะ — แนะนำให้รอก่อนครับ</div>
+    <div id="retest-box" style="display:none;background:#E6F1FB;border-radius:10px;padding:12px;margin-top:8px;border-left:3px solid #378ADD">
+      <div style="font-size:13px;font-weight:600;color:#185FA5;margin-bottom:8px">แผน Retest</div>
+      <div class="form-group" style="margin-bottom:8px">
+        <label style="color:#185FA5">เหตุผลที่ Retest ตามแผน</label>
+        <input type="text" id="f-retest-reason" placeholder="เช่น ราคากลับมา test แนวรับ 4985 ตามที่วางไว้">
+      </div>
+      <div style="font-size:12px;color:#185FA5;line-height:1.6">
+        ✓ Order นี้วางแผนไว้ก่อนเปิด Order แรก<br>
+        ✓ รวม SL ทั้งหมดไม่เกิน % ทุนที่กำหนด<br>
+        ✓ ไม่ใช่การเปิดเพราะกลัวหรือโลภ
+      </div>
+    </div>
     <button class="btn btn-primary" onclick="saveOrder()" style="margin-top:10px">บันทึก</button>
   </div>
 </div>
@@ -381,8 +416,8 @@ const centCol = collection(db, 'cent_trades');
 
 const SL_LIMIT_CENT = 1500;
 function calcCent(diff,lot){return Math.abs(diff)*lot*100;}
-const emotionMap = {calm:'สงบ',confident:'มั่นใจ',fomo:'FOMO',revenge:'แก้แค้น',fear:'กลัว',greedy:'โลภ'};
-const emotionColor = {calm:'#1D9E75',confident:'#378ADD',fomo:'#EF9F27',revenge:'#E24B4A',fear:'#BA7517',greedy:'#D4537E'};
+const emotionMap = {calm:'สงบ',confident:'มั่นใจ',retest:'Retest ตามแผน',fomo:'FOMO',revenge:'แก้แค้น',fear:'กลัว',greedy:'โลภ'};
+const emotionColor = {calm:'#1D9E75',confident:'#378ADD',retest:'#8B5CF6',fomo:'#EF9F27',revenge:'#E24B4A',fear:'#BA7517',greedy:'#D4537E'};
 
 let orders = [];
 let currentFilter = 'all';
@@ -431,14 +466,20 @@ async function saveOrder() {
   if (!date || !symbol || !lot || !entry || !tp || !sl) { alert('กรุณากรอกข้อมูลให้ครบครับ'); return; }
   const maxOrdNow = parseInt(localStorage.getItem('tj_cent_maxorders') || '2');
   const openNow = orders.filter(o => o.pnl == null).length;
-  if(openNow >= maxOrdNow) {
+  const isRetestOrder = emotion === 'retest';
+  if(openNow >= maxOrdNow && !isRetestOrder) {
     const ok = confirm('⚠️ ตอนนี้มี Order เปิดอยู่ ' + openNow + ' รายการ\nเกินกฎที่ตั้งไว้ (' + maxOrdNow + ' Order)\n\nยังต้องการบันทึกต่อไหมครับ?');
     if(!ok) return;
   }
   setSyncStatus('syncing');
   try {
-    await addDoc(centCol, { date, symbol, dir, lot, entry, tp, sl, pnl, reason, emotion, rules, createdAt: Date.now() });
-    ['f-lot','f-entry','f-tp','f-sl','f-reason'].forEach(id => document.getElementById(id).value = '');
+    const retestPlan = emotion === 'retest' ? {
+    retestEntry: parseFloat(document.getElementById('f-retest-entry').value) || null,
+    retestTotalSL: parseFloat(document.getElementById('f-retest-total-sl').value) || null,
+  } : {};
+  await addDoc(centCol, { date, symbol, dir, lot, entry, tp, sl, pnl, reason, emotion, rules, ...retestPlan, createdAt: Date.now() });
+    ['f-lot','f-entry','f-tp','f-sl','f-reason','f-retest-reason'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('retest-box').style.display = 'none';
     document.getElementById('risk-info').style.display = 'none';
     document.getElementById('risk-warn').style.display = 'none';
     document.getElementById('emotion-warn').style.display = 'none';
@@ -513,6 +554,28 @@ function updateTimer() {
 
 function getCapital(){ return parseFloat(document.getElementById('f-capital').value) || 0; }
 function getRiskPct(){ return parseFloat(document.getElementById('f-risk-pct').value) || 1; }
+
+window.calcRetestRisk = function() {
+  const totalSL = parseFloat(document.getElementById('f-retest-total-sl').value);
+  const cap = getCapital();
+  const warnEl = document.getElementById('retest-risk-warn');
+  const pctEl = document.getElementById('retest-risk-pct');
+  if(!totalSL) { pctEl.textContent = '—'; warnEl.style.display='none'; return; }
+  if(cap > 0) {
+    const pct = (totalSL / cap * 100).toFixed(2);
+    const maxDaily = cap * 3 / 100;
+    pctEl.textContent = pct + '%';
+    pctEl.style.color = totalSL > maxDaily ? '#E24B4A' : '#5B21B6';
+    if(totalSL > maxDaily) {
+      warnEl.style.display = 'block';
+      warnEl.textContent = 'SL รวมเกิน 3% ของทุน (¢' + maxDaily.toFixed(0) + ') — ระวังด้วยนะครับ';
+    } else {
+      warnEl.style.display = 'none';
+    }
+  } else {
+    pctEl.textContent = 'ใส่เงินทุนก่อนครับ';
+  }
+}
 
 window.saveCapital = function(){
   const cap = document.getElementById('f-capital').value;
@@ -624,8 +687,9 @@ function renderHistory() {
       ? '<div class="order-pnl ' + (o.pnl >= 0 ? 'green' : 'red') + '">' + (o.pnl >= 0 ? '+¢' : '-¢') + Math.abs(parseFloat(o.pnl)).toFixed(0) + '<span style="font-size:11px;opacity:0.7"> ($' + Math.abs(parseFloat(o.pnl)/100).toFixed(2) + ')</span></div>'
       : '<button onclick="openCloseModal(\'' + o.firestoreId + '\')" style="padding:6px 14px;border-radius:8px;border:1px solid #1D9E75;background:#E1F5EE;color:#0F6E56;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">ปิด Order</button>';
     const rb = o.rules === 'yes' ? 'badge-ok">ครบ' : o.rules === 'partial' ? 'badge-warn2">บางข้อ' : 'badge-bad">ไม่ครบ';
+    const retestBadge = o.emotion === 'retest' ? '<span class="badge" style="background:#F5F3FF;color:#5B21B6;border:1px solid #DDD6FE">Retest ตามแผน</span>' : '';
     const fid = o.firestoreId;
-    return `<div class="order-card"><div class="order-header"><div><div class="order-symbol">${o.symbol}</div><div class="order-date">${o.date}</div></div><div style="display:flex;align-items:center;gap:8px">${pnlHtml}<button class="delete-btn" onclick="deleteOrder('${fid}')">✕</button></div></div><div class="order-meta"><span class="badge badge-${o.dir}">${o.dir.toUpperCase()} ${o.lot}</span><span class="badge ${rb}</span>${o.emotion ? '<span class="badge" style="background:#F1EFE8;color:#5F5E5A">' + (emotionMap[o.emotion] || o.emotion) + '</span>' : ''}</div><div class="order-prices"><span>Entry<b>${o.entry}</b></span><span>TP<b style="color:#1D9E75">${o.tp}</b></span><span>SL<b style="color:#E24B4A">${o.sl}</b></span></div>${o.reason ? '<div class="order-reason">เหตุผล: ' + o.reason + '</div>' : ''}</div>`;
+    return `<div class="order-card"><div class="order-header"><div><div class="order-symbol">${o.symbol}</div><div class="order-date">${o.date}</div></div><div style="display:flex;align-items:center;gap:8px">${pnlHtml}<button class="delete-btn" onclick="deleteOrder('${fid}')">✕</button></div></div><div class="order-meta"><span class="badge badge-${o.dir}">${o.dir.toUpperCase()} ${o.lot}</span><span class="badge ${rb}</span>${retestBadge}${o.emotion && o.emotion !== 'retest' ? '<span class="badge" style="background:#F1EFE8;color:#5F5E5A">' + (emotionMap[o.emotion] || o.emotion) + '</span>' : ''}</div><div class="order-prices"><span>Entry<b>${o.entry}</b></span><span>TP<b style="color:#1D9E75">${o.tp}</b></span><span>SL<b style="color:#E24B4A">${o.sl}</b></span></div>${o.reason ? '<div class="order-reason">เหตุผล: ' + o.reason + '</div>' : ''}${o.retestReason ? '<div class="order-reason" style="color:#185FA5">Retest: ' + o.retestReason + '</div>' : ''}</div>`;
   }).join('');
 }
 
@@ -698,7 +762,17 @@ if(savedPct) document.getElementById('f-risk-pct').value = savedPct;
 if(savedMaxOrd) document.getElementById('f-max-orders').value = savedMaxOrd;
 updateCapitalDisplay();
 document.getElementById('f-emotion').addEventListener('change', function () {
-  document.getElementById('emotion-warn').style.display = ['fomo', 'revenge', 'fear', 'greedy'].includes(this.value) ? 'block' : 'none';
+  const isRetest = this.value === 'retest';
+  const isBad = ['fomo', 'revenge', 'fear', 'greedy'].includes(this.value);
+  document.getElementById('emotion-warn').style.display = isBad ? 'block' : 'none';
+  document.getElementById('retest-plan-box').style.display = isRetest ? 'block' : 'none';
+  document.getElementById('retest-exception').style.display = isRetest ? 'inline' : 'none';
+  if(isRetest) {
+    const checkItem = document.getElementById('checklist-no-loss');
+    if(checkItem && !checkItem.classList.contains('checked')) {
+      checkItem.classList.add('checked');
+    }
+  }
 });
 
 // ── Close Order Functions ───────────────────────────────────
